@@ -16,7 +16,8 @@ requirements = [
     "nipype>=1.2.0",
     "dipy",
     "numba",
-    "pybids>=0.9.1"
+    "pybids>=0.9.1",
+    "niworkflows"
 ]
 
 setup_requirements = [ ]

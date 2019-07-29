@@ -35,8 +35,8 @@ class Parameters:
 @click.command()
 @click.option(
     "--num-tracts",
-    help="The number of tracts generated",
-    default=5000,
+    help="The number of tracts to be generated",
+    default=5000000,
 )
 @click.option(
     "--participant-label",

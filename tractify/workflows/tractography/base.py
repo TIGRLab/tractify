@@ -11,6 +11,8 @@ from dipy.segment.mask import median_otsu
 from numba import cuda
 from bids import BIDSLayout
 
+from niworkflows.anat.ants import init_brain_extraction_wf
+
 from ...interfaces import mrtrix3
 from ...interfaces import fsl as dmri_fsl
 from .outputs import init_tract_output_wf
@@ -55,9 +57,14 @@ def init_tract_wf():
         name="outputnode",
     )
 
+    # Skullstrip the t1, needs to map brain on brain
+    t1_skullstrip = init_brain_extraction_wf()
+
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
+
+    to_list = lambda x: [x]
 
     # T1 should already be skull stripped and minimally preprocessed (from Freesurfer will do)
     #5ttgen fsl -nocrop -premasked T1_diff.nii.gz 5TT.mif
@@ -119,11 +126,12 @@ def init_tract_wf():
     tract_wf.connect(
         [
             # t1 flirt
+            (inputnode, t1_skullstrip, [(("t1_file", to_list), "inputnode.in_files")]),
+            (t1_skullstrip, flirt, [("outputnode.out_file", "in_file")]),
             (
                 inputnode,
                 flirt,
                 [
-                    ("t1_file", "in_file"),
                     ("dwi_mask", "reference")
                 ]
             ),
