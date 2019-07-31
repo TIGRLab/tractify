@@ -20,8 +20,6 @@ from .outputs import init_tract_output_wf
 from nipype.interfaces import fsl, utility as niu
 
 def init_tract_wf():
-    output_dir = '/scratch/smansour/tract_testing/'
-
     tract_wf = pe.Workflow(name="tract_wf")
     tract_wf.base_dir = os.path.join(output_dir, 'scratch')
 
