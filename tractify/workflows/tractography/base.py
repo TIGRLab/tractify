@@ -7,7 +7,6 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import fsl, utility as niu
 from nipype.utils import NUMPY_MMAP
 from nipype.utils.filemanip import fname_presuffix
-from dipy.segment.mask import median_otsu
 from numba import cuda
 from bids import BIDSLayout
 
