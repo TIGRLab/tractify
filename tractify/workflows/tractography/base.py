@@ -29,6 +29,7 @@ def init_tract_wf():
                 "output_dir",
                 "t1_file",
                 "eddy_file",
+                "eddy_mask",
                 "dwi_mask",
                 "bval",
                 "bvec",
@@ -64,7 +65,7 @@ def init_tract_wf():
 
     # T1 should already be skull stripped and minimally preprocessed (from Freesurfer will do)
     #5ttgen fsl -nocrop -premasked T1_diff.nii.gz 5TT.mif
-    gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='fsl', out_file='5TT.mif'), name="gen5tt")
+    gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='fsl', no_crop=True, premasked=True, out_file='5TT.mif'), name="gen5tt")
     #5tt2gmwmi 5TT.mif gmwmi.mif
     gen5ttMask = pe.Node(mrtrix3.Generate5ttMask(out_file='gmwmi.mif'), name="gen5ttMask")
 
@@ -143,6 +144,7 @@ def init_tract_wf():
                 ]
             ),
             (gen_tuple, responseSD, [("out_tuple", "grad_fsl")]),
+            (inputnode, responseSD, [("eddy_mask", "in_mask")]),
             (
                 inputnode,
                 responseSD,

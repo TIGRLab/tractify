@@ -247,7 +247,7 @@ class Generate5ttInputSpec(MRTrix3BaseInputSpec):
         'gif',
         'freesurfer',
         argstr='%s',
-        position=-3,
+        position=0,
         mandatory=True,
         desc='tissue segmentation algorithm')
     in_file = File(
@@ -258,7 +258,15 @@ class Generate5ttInputSpec(MRTrix3BaseInputSpec):
         desc='input image')
     out_file = File(
         argstr='%s', mandatory=True, position=-1, desc='output image')
-
+    no_crop = traits.Bool(
+        argstr='-nocrop',
+        position=1,
+        desc=('Do NOT crop the resulting 5TT image to reduce its size (keep the same'
+            'dimensions as the input image)'))
+    premasked = traits.Bool(
+        argstr='-premasked',
+        position=2,
+        desc=('Indicate that brain masking has already been applied to the input image'))
 
 class Generate5ttOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output image')
