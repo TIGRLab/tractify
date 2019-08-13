@@ -16,8 +16,8 @@ requirements = [
     "nipype>=1.2.0",
     "dipy",
     "numba",
-    "pybids>=0.9.1",
-    "niworkflows"
+    "pybids>=0.9.2",
+    "niworkflows>=0.10.3rc1"
 ]
 
 setup_requirements = [ ]
@@ -56,7 +56,7 @@ setup(
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/salimansourc/tractify',
+    url='https://github.com/TIGRLab/tractify',
     version='0.1.0',
     zip_safe=False,
 )
