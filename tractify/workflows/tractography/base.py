@@ -162,6 +162,7 @@ def init_tract_wf():
                 ]
             ),
             (responseSD, estimateFOD, [("wm_file", "wm_txt")]),
+            (inputnode, estimateFOD, [("eddy_mask", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
             (gen5tt, tckgen, [("out_file", "act_file")]),
