@@ -1,4 +1,4 @@
-FROM poldracklab/fmriprep:1.3.2
+FROM ubuntu:xenial-20161213
 
 # Used command:
 # neurodocker generate docker --base=debian:stretch --pkg-manager=apt
@@ -49,6 +49,30 @@ RUN export ND_ENTRYPOINT="/neurodocker/startup.sh" \
 
 ENTRYPOINT ["/neurodocker/startup.sh"]
 
+# SETUP taken from fmriprep:latest, installs C compiler for ANTS
+# Prepare environment
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+                    curl \
+                    bzip2 \
+                    ca-certificates \
+                    xvfb \
+                    cython3 \
+                    build-essential \
+                    autoconf \
+                    libtool \
+                    pkg-config \
+                    git && \
+    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y --no-install-recommends \
+                    nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install latest pandoc
+RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/releases/download/2.2.2.1/pandoc-2.2.2.1-1-amd64.deb" && \
+    dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
+    rm pandoc-2.2.2.1-1-amd64.deb
+
 # ANTS
 # from https://github.com/kaczmarj/ANTs-builds/blob/master/Dockerfile
 
@@ -89,9 +113,10 @@ ENV ANTSPATH=/opt/ants/ \
 
 WORKDIR /
 
-# FSL from neurodocker
+
 ENV FSLDIR="/opt/fsl-6.0.1" \
-    PATH="/opt/fsl-6.0.1/bin:$PATH"
+    PATH="/opt/fsl-6.0.1/bin:$PATH" \
+    FSLOUTPUTTYPE="NIFTI_GZ"
 RUN apt-get update -qq \
     && apt-get install -y -q --no-install-recommends \
            bc \
@@ -109,34 +134,14 @@ RUN apt-get update -qq \
            libxrandr2 \
            libxrender1 \
            libxt6 \
+           python \
            wget \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Downloading FSL ..." \
-    && mkdir -p /opt/fsl-6.0.1 \
-    && curl -fsSL --retry 5 https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.1-centos6_64.tar.gz \
-    | tar -xz -C /opt/fsl-6.0.1 --strip-components 1 \
-    && sed -i '$iecho Some packages in this Docker container are non-free' $ND_ENTRYPOINT \
-    && sed -i '$iecho If you are considering commercial use of this container, please consult the relevant license:' $ND_ENTRYPOINT \
-    && sed -i '$iecho https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Licence' $ND_ENTRYPOINT \
-    && sed -i '$isource $FSLDIR/etc/fslconf/fsl.sh' $ND_ENTRYPOINT
-
-RUN echo '{ \
-    \n  "pkg_manager": "apt", \
-    \n  "instructions": [ \
-    \n    [ \
-    \n      "base", \
-    \n      "poldracklab/fmriprep:1.3.2" \
-    \n    ], \
-    \n    [ \
-    \n      "fsl", \
-    \n      { \
-    \n        "version": "6.0.1", \
-    \n        "method": "binaries" \
-    \n      } \
-    \n    ] \
-    \n  ] \
-    \n}' > /neurodocker/neurodocker_specs.json
+    && wget -q http://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py \
+    && chmod 775 fslinstaller.py
+RUN /fslinstaller.py -d /opt/fsl-6.0.1 -V 6.0.1 -q
 
 # FSL 6.0.1
 # Freesurfer 6.0.0
@@ -170,6 +175,18 @@ ENV PATH=/mrtrix/bin:$PATH
 
 WORKDIR /
 
+# Installing and setting up miniconda
+RUN curl -sSLO https://repo.continuum.io/miniconda/Miniconda3-4.5.11-Linux-x86_64.sh && \
+    bash Miniconda3-4.5.11-Linux-x86_64.sh -b -p /usr/local/miniconda && \
+    rm Miniconda3-4.5.11-Linux-x86_64.sh
+
+# Set CPATH for packages relying on compiled libs (e.g. indexed_gzip)
+ENV PATH="/usr/local/miniconda/bin:$PATH" \
+    CPATH="/usr/local/miniconda/include/:$CPATH" \
+    LANG="C.UTF-8" \
+    LC_ALL="C.UTF-8" \
+    PYTHONNOUSERSITE=1
+
 # add credentials on build
 RUN mkdir ~/.ssh && ln -s /run/secrets/host_ssh_key ~/.ssh/id_rsa
 # Getting required installation tools
@@ -177,12 +194,32 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libopenblas-base
 
+# Precaching atlases
+ENV TEMPLATEFLOW_HOME="/opt/templateflow"
+RUN mkdir -p $TEMPLATEFLOW_HOME
+RUN pip install --no-cache-dir "templateflow>=0.3.0,<0.4.0a0" && \
+    python -c "from templateflow import api as tfapi; \
+               tfapi.get('MNI152NLin6Asym', atlas=None); \
+               tfapi.get('MNI152NLin2009cAsym', atlas=None); \
+               tfapi.get('OASIS30ANTs');" && \
+    find $TEMPLATEFLOW_HOME -type d -exec chmod go=u {} + && \
+    find $TEMPLATEFLOW_HOME -type f -exec chmod go=u {} +
+
+RUN conda install -y python=3.7.3 \
+                     pip=19.1 \
+                     libxml2=2.9.8 \
+                     libxslt=1.1.32 \
+                     graphviz=2.40.1; sync && \
+    chmod -R a+rX /usr/local/miniconda; sync && \
+    chmod +x /usr/local/miniconda/bin/*; sync && \
+    conda build purge-all; sync && \
+    conda clean -tipsy && sync
+
 # setting up an install of tractify (manual version) inside the container
 #ADD https://api.github.com/repos/TIGRLab/tractify/git/refs/heads/master version.json
 #RUN git clone -b master https://github.com/TIGRLab/tractify.git tractify
 # Following two lines assumes you are building from within a pulled tractify repo
-RUN mkdir tractify
-COPY ./ tractify/
+
 RUN pip install --upgrade pip
 RUN pip install \
     numba==0.45.0 \
@@ -191,6 +228,9 @@ RUN pip install \
     pybids==0.9.2 \
     nipype==1.2.0 \
     niworkflows==0.10.2
+
+RUN mkdir tractify
+COPY ./ tractify/
 RUN cd tractify && python setup.py install
 
 ENTRYPOINT ["tractify"]
