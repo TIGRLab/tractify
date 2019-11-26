@@ -30,7 +30,8 @@ def init_tract_wf():
                 "t1_file",
                 "eddy_file",
                 "eddy_mask",
-                "dwi_mask",
+                #"dwi_mask",
+                "eddy_avg_b0"
                 "bval",
                 "bvec",
                 "template",
@@ -129,7 +130,8 @@ def init_tract_wf():
                 inputnode,
                 flirt,
                 [
-                    ("dwi_mask", "reference")
+                    #("dwi_mask", "reference") ## this was not the right input_file for flirt
+                    ("eddy_avg_b0", "reference")
                 ]
             ),
             # response function + mask
