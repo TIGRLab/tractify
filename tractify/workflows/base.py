@@ -72,7 +72,7 @@ def init_single_subject_wf(subject_id, name, parameters):
             inputspec.inputs.output_dir = parameters.output_dir
             inputspec.inputs.t1_file = t1_file
             inputspec.inputs.eddy_file = dmripreproc_output['eddy_file']
-            inputspec.inputs.dwi_mask = dmripreproc_output['dwi_mask']
+            inputspec.inputs.eddy_avg_b0 = dmripreproc_output['eddy_avg_b0']
             inputspec.inputs.eddy_mask = dmripreproc_output['eddy_mask']
             inputspec.inputs.bvec = dmripreproc_output['bvec']
             inputspec.inputs.bval = dmripreproc_output['bval']

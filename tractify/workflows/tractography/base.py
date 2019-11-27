@@ -30,7 +30,7 @@ def init_tract_wf():
                 "t1_file",
                 "eddy_file",
                 "eddy_mask",
-                "dwi_mask",
+                "eddy_avg_b0"
                 "bval",
                 "bvec",
                 "template",
@@ -129,7 +129,7 @@ def init_tract_wf():
                 inputnode,
                 flirt,
                 [
-                    ("dwi_mask", "reference")
+                    ("eddy_avg_b0", "reference")
                 ]
             ),
             # response function + mask
@@ -172,14 +172,10 @@ def init_tract_wf():
             (estimateFOD, tcksift, [("wm_odf", "in_fod")]),
             (tckgen, tcksift, [("out_file", "in_tracks")]),
             # atlas flirt
-            (
-                inputnode,
-                pre_atlas_flirt,
-                [
-                    ("t1_file", "in_file"),
-                    ("template", "reference")
-                ]
-            ),
+
+            (t1_skullstrip, pre_atlas_flirt,[("outputnode.out_file", "in_file")]),
+            (inputnode, pre_atlas_flirt,[("template", "reference")]),
+
             (pre_atlas_flirt, xfm_inv, [("out_matrix_file", "in_file")]),
             (flirt, xfm_concat, [("out_matrix_file", "in_file2")]),
             (xfm_inv, xfm_concat, [("out_file", "in_file")]),
