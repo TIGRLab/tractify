@@ -193,7 +193,6 @@ def collect_dmripreproc_output(dmriprep_dir, subject_id, session_id = None):
     dmri_output['eddy_file'] = os.path.join(dmri_files_path, 'eddy_corrected.nii.gz')
     dmri_output['bvec'] = os.path.join(dmri_files_path, 'eddy_corrected.eddy_rotated_bvecs')
     dmri_output['bval'] = os.path.join(dmri_files_path, next(f for f in dmri_files if f.endswith('.bval')))
-    #dmri_output['eddy_avg_b0'] = os.path.join(dmri_files_path, next(f for f in dmri_files if f.endswith('eddy_corrected_avg_b0.nii.gz')))
     dmri_output['eddy_avg_b0'] = os.path.join(dmri_files_path,'eddy_corrected_avg_b0.nii.gz')
     dmri_output['eddy_mask'] = os.path.join(dmri_files_path, 'eddy_corrected_roi_mask.nii.gz')
 
