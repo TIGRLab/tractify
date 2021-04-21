@@ -60,22 +60,24 @@ def init_single_subject_wf(subject_id, name, parameters):
                 os.path.abspath(parameters.work_dir), subject_id
             )
 
-            dmripreproc_output = utils.collect_dmripreproc_output(
-                dmriprep_dir=parameters.dmriprep_dir,
-                subject_id=subject_id,
-                session_id=session_id
-            )
+            # dmripreproc_output = utils.collect_dmripreproc_output(
+            #     dmriprep_dir=parameters.dmriprep_dir,
+            #     subject_id=subject_id,
+            #     session_id=session_id
+            # )
 
             inputspec = tract_wf.get_node("inputnode")
             inputspec.inputs.subject_id = subject_id
             inputspec.inputs.session_id = session_id
             inputspec.inputs.output_dir = parameters.output_dir
-            inputspec.inputs.t1_file = t1_file
-            inputspec.inputs.eddy_file = dmripreproc_output['eddy_file']
-            inputspec.inputs.eddy_avg_b0 = dmripreproc_output['eddy_avg_b0']
-            inputspec.inputs.eddy_mask = dmripreproc_output['eddy_mask']
-            inputspec.inputs.bvec = dmripreproc_output['bvec']
-            inputspec.inputs.bval = dmripreproc_output['bval']
+            inputspec.inputs.t1_file = parameters.t1_file
+            inputspec.inputs.eddy_file = parameters.eddy_file
+            inputspec.inputs.bvec = parameters.bvec
+            inputspec.inputs.bval = parameters.bval
+            # inputspec.inputs.eddy_avg_b0 = parameters.eddy_avg_b0
+            # inputspec.inputs.eddy_mask = parameters.eddy_mask
+            # inputspec.inputs.bvec = dmripreproc_output['bvec']
+            # inputspec.inputs.bval = dmripreproc_output['bval']
             inputspec.inputs.template = parameters.template_file
             inputspec.inputs.atlas = parameters.atlas_file
             inputspec.inputs.num_tracts = parameters.num_tracts

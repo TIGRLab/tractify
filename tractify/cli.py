@@ -14,8 +14,12 @@ class Parameters:
         self,
         layout,
         subject_list,
-        bids_dir,
-        dmriprep_dir,
+        # bids_dir,
+        # dmriprep_dir,
+        t1_file,
+        eddy_file,
+        bval_file,
+        bvec_file,
         work_dir,
         output_dir,
         template_file,
@@ -24,8 +28,12 @@ class Parameters:
     ):
         self.layout = layout
         self.subject_list = subject_list
-        self.bids_dir = bids_dir
-        self.dmriprep_dir = dmriprep_dir
+        # self.bids_dir = bids_dir
+        # self.dmriprep_dir = dmriprep_dir
+        self.t1_file = t1_file
+        self.eddy_file = eddy_file
+        self.bval_file = bval_file
+        self.bvec_file = bvec_file
         self.work_dir = work_dir
         self.output_dir = output_dir
         self.template_file = template_file
@@ -48,13 +56,18 @@ class Parameters:
     "can be specified with a space separated list.",
     default=None,
 )
-@click.argument("bids_dir")
-@click.argument("dmriprep_dir")
+# @click.argument("bids_dir")
+# @click.argument("dmriprep_dir")
+@click.argument("t1_file")
+@click.argument("eddy_file")
+@click.argument("bval_file")
+@click.argument("bvec_file")
 @click.argument("template_file")
 @click.argument("atlas_file")
 @click.argument("output_dir")
 
-def main(num_tracts, participant_label, bids_dir, dmriprep_dir, template_file, atlas_file, output_dir):
+# def main(num_tracts, participant_label, bids_dir, dmriprep_dir, template_file, atlas_file, output_dir):
+def main(num_tracts, participant_label, t1_file, eddy_file, bval_file, bvec_file, template_file, atlas_file, output_dir):
     """Console script for tractify."""
 
     layout = BIDSLayout(bids_dir, validate=False)
@@ -68,8 +81,12 @@ def main(num_tracts, participant_label, bids_dir, dmriprep_dir, template_file, a
     parameters = Parameters(
         layout=layout,
         subject_list=subject_list,
-        bids_dir=bids_dir,
-        dmriprep_dir=dmriprep_dir,
+        # bids_dir=bids_dir,
+        # dmriprep_dir=dmriprep_dir,
+        t1_file=t1_file,
+        eddy_file=eddy_file,
+        bval_file=bval_file,
+        bvec_file=bvec_file,
         work_dir=work_dir,
         output_dir=output_dir,
         template_file=template_file,

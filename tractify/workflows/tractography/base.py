@@ -5,7 +5,6 @@ import numpy as np
 import nibabel as nib
 from nipype.pipeline import engine as pe
 from nipype.interfaces import fsl, utility as niu
-from nipype.utils import NUMPY_MMAP
 from nipype.utils.filemanip import fname_presuffix
 from numba import cuda
 from bids import BIDSLayout
@@ -29,8 +28,8 @@ def init_tract_wf():
                 "output_dir",
                 "t1_file",
                 "eddy_file",
-                "eddy_mask",
-                "eddy_avg_b0"
+                # "eddy_mask",
+                # "eddy_avg_b0",
                 "bval",
                 "bvec",
                 "template",
@@ -117,6 +116,28 @@ def init_tract_wf():
     fod_convert = pe.Node(mrtrix3.MRConvert(out_filename="FOD.nii.gz"), name="fod_convert")
     gmwmi_convert = pe.Node(mrtrix3.MRConvert(out_filename="gmwmi.nii.gz"), name="gmwmi_convert")
 
+    # Merge the bvec and bval from eddy
+    eddy_grad_merge = pe.Node(
+        niu.Function(
+            input_names=["item1", "item2"],
+            output_names=["out_tuple"],
+            function=gen_tuple,
+        ),
+        name="eddy_grad_merge",
+    )
+
+    # Extract b0s from the eddy using mrtrix3
+    eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True), name="eddy_extract_b0")
+
+    # Avg out the b0s from eddy
+    eddy_mean_b0 = pe.Node(mrtrix3.MRMath(operation='mean', axis=3), name="eddy_mean_b0")
+
+    # dilate mask (eddy)
+    eddy_b0_mask = pe.Node(
+        fsl.BET(frac=parameters.bet_dwi, mask=True, robust=True),
+        name="eddy_b0_mask",
+    )
+
     # Initialize output wf
     datasink = init_tract_output_wf()
 
@@ -125,13 +146,11 @@ def init_tract_wf():
             # t1 flirt
             (inputnode, t1_skullstrip, [(("t1_file", to_list), "inputnode.in_files")]),
             (t1_skullstrip, flirt, [("outputnode.out_file", "in_file")]),
-            (
-                inputnode,
-                flirt,
-                [
-                    ("eddy_avg_b0", "reference")
-                ]
-            ),
+            # Generate eddy avg b0 and then feed into flirt reference
+            # (inputnode, flirt, [("eddy_avg_b0", "reference")]),
+            # (inputnode, eddy_avg_b0, [("eddy_file", "in_dwi")]),
+            # (inputnode, eddy_avg_b0, [("bval", "in_bval")]),
+            # (eddy_avg_b0, flirt, [("out_file", "reference")]),
             # response function + mask
             (flirt, gen5tt, [("out_file", "in_file")]),
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
@@ -144,7 +163,20 @@ def init_tract_wf():
                 ]
             ),
             (gen_tuple, responseSD, [("out_tuple", "grad_fsl")]),
-            (inputnode, responseSD, [("eddy_mask", "in_mask")]),
+            # (inputnode, responseSD, [("eddy_mask", "in_mask")]),
+            # Combining the bval and bvec from eddy
+            (inputnode, eddy_grad_merge, [("bval", "in1")]),
+            (inputnode, eddy_grad_merge, [("bvec", "in2")]),
+            # Extracting b0 from eddy
+            (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
+            (eddy_grad_merge, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
+            # Averaging out b0 from mrmath
+            (eddy_extract_b0, eddy_mean_b0, [("out_file", "in_file")]),
+            (eddy_mean_b0, flirt, [("out_file", "reference")]),
+            # Skulstrip b0 using BET
+            (eddy_mean_b0, eddy_b0_mask, [("out_file", "in_file")]),
+            # Generate eddy mask and then feed into responseSD
+            (eddy_b0_mask, responseSD, [("out_file", "in_mask")]),
             (
                 inputnode,
                 responseSD,
