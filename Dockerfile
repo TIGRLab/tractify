@@ -73,44 +73,6 @@ RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/relea
     dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
     rm pandoc-2.2.2.1-1-amd64.deb
 
-# ANTS
-# from https://github.com/kaczmarj/ANTs-builds/blob/master/Dockerfile
-
-# Get CMake for ANTS
-RUN mkdir /cmake_temp
-WORKDIR /cmake_temp
-RUN wget https://cmake.org/files/v3.12/cmake-3.12.2.tar.gz \
-    && tar -xzvf cmake-3.12.2.tar.gz \
-    && echo 'done tar' \
-    && ls \
-    && cd cmake-3.12.2/ \
-    && ./bootstrap -- -DCMAKE_BUILD_TYPE:STRING=Release \
-    && make -j4 \
-    && make install \
-    && cd .. \
-    && rm -rf *
-
-RUN cmake --version
-
-RUN mkdir /ants
-RUN apt-get update && apt-get -y install zlib1g-dev
-
-RUN git clone https://github.com/ANTsX/ANTs.git --branch v2.3.1 /ants
-WORKDIR /ants
-
-RUN mkdir build \
-    && cd build \
-    && git config --global url."https://".insteadOf git:// \
-    && cmake .. \
-    && make -j1 \
-    && mkdir -p /opt/ants \
-    && mv bin/* /opt/ants && mv ../Scripts/* /opt/ants \
-    && cd .. \
-    && rm -rf build
-
-ENV ANTSPATH=/opt/ants/ \
-    PATH=/opt/ants:$PATH
-
 WORKDIR /
 
 
@@ -221,16 +183,16 @@ RUN conda install -y python=3.7.3 \
 # Following two lines assumes you are building from within a pulled tractify repo
 
 RUN pip install --upgrade pip
-RUN pip install \
-    numba==0.45.0 \
-    Click==7.0 \
-    dipy==0.16.0 \
-    pybids==0.9.2 \
-    nipype==1.2.0 \
-    niworkflows==0.10.2
+# RUN pip install \
+#     numba==0.45.0 \
+#     Click==7.0 \
+#     dipy==0.16.0 \
+#     pybids==0.9.2 \
+#     nipype==1.2.0 \
+#     niworkflows==0.10.2
 
 RUN mkdir tractify
 COPY ./ tractify/
-RUN cd tractify && python setup.py install
+RUN cd tractify && pip install .
 
 ENTRYPOINT ["tractify"]

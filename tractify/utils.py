@@ -202,3 +202,6 @@ def collect_dmripreproc_output(dmriprep_dir, subject_id, session_id = None):
     dmri_output['eddy_mask'] = os.path.join(dmri_files_path, 'eddy_corrected_roi_mask.nii.gz')
 
     return dmri_output
+
+def gen_tuple(item1, item2):
+    return (item1, item2)

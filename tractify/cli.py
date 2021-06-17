@@ -7,13 +7,13 @@ import click
 from bids import BIDSLayout
 
 from . import utils
-from .workflows.base import init_tractify_wf
+from .workflows.base import init_tractify_wf, init_single_ses_wf
 
 class Parameters:
     def __init__(
         self,
-        layout,
-        subject_list,
+        # layout,
+        # subject_list,
         # bids_dir,
         # dmriprep_dir,
         t1_file,
@@ -26,8 +26,8 @@ class Parameters:
         atlas_file,
         num_tracts
     ):
-        self.layout = layout
-        self.subject_list = subject_list
+        # self.layout = layout
+        # self.subject_list = subject_list
         # self.bids_dir = bids_dir
         # self.dmriprep_dir = dmriprep_dir
         self.t1_file = t1_file
@@ -54,7 +54,14 @@ class Parameters:
     "not include 'sub-'). If this parameter is not provided "
     "all subjects will be analyzed. Multiple participants "
     "can be specified with a space separated list.",
-    default=None,
+    default="001",
+)
+@click.option(
+    "--session-label",
+    help="The session id for the given participant."
+    "This is for organization purposes and to be"
+    "better compliant with bids.",
+    default="01",
 )
 # @click.argument("bids_dir")
 # @click.argument("dmriprep_dir")
@@ -67,20 +74,20 @@ class Parameters:
 @click.argument("output_dir")
 
 # def main(num_tracts, participant_label, bids_dir, dmriprep_dir, template_file, atlas_file, output_dir):
-def main(num_tracts, participant_label, t1_file, eddy_file, bval_file, bvec_file, template_file, atlas_file, output_dir):
+def main(num_tracts, participant_label, session_label, t1_file, eddy_file, bval_file, bvec_file, template_file, atlas_file, output_dir):
     """Console script for tractify."""
 
-    layout = BIDSLayout(bids_dir, validate=False)
-    subject_list = utils.collect_participants(
-        layout, participant_label=participant_label
-    )
+    # layout = BIDSLayout(bids_dir, validate=False)
+    # subject_list = utils.collect_participants(
+    #     layout, participant_label=participant_label
+    # )
 
     work_dir = os.path.join(output_dir, "scratch")
 
     # Set parameters based on CLI, pass through object
     parameters = Parameters(
-        layout=layout,
-        subject_list=subject_list,
+        # layout=layout,
+        # subject_list=subject_list,
         # bids_dir=bids_dir,
         # dmriprep_dir=dmriprep_dir,
         t1_file=t1_file,
@@ -94,7 +101,9 @@ def main(num_tracts, participant_label, t1_file, eddy_file, bval_file, bvec_file
         num_tracts=num_tracts
     )
 
-    wf = init_tractify_wf(parameters)
+    # wf = init_tractify_wf(parameters)
+    wf = init_single_ses_wf(participant_label, session_label, parameters)
+    wf.base_dir = parameters.work_dir
     wf.write_graph(graph2use="colored")
     wf.config["execution"]["remove_unnecessary_outputs"] = False
     wf.config["execution"]["keep_inputs"] = True

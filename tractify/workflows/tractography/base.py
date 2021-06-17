@@ -14,6 +14,7 @@ from niworkflows.anat.ants import init_brain_extraction_wf
 from ...interfaces import mrtrix3
 from ...interfaces import fsl as dmri_fsl
 from .outputs import init_tract_output_wf
+from ...utils import gen_tuple
 
 from nipype.interfaces import fsl, utility as niu
 
@@ -43,18 +44,19 @@ def init_tract_wf():
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "tck_file",
+                "fod_file",
                 "prob_weights",
                 "shen_diff_space",
                 "inv_len_conmat",
                 "len_conmat",
+                "gmwmi_file",
             ]
         ),
         name="outputnode",
     )
 
     # Skullstrip the t1, needs to map brain on brain
-    t1_skullstrip = init_brain_extraction_wf()
+    # t1_skullstrip = init_brain_extraction_wf()
 
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
@@ -80,16 +82,13 @@ def init_tract_wf():
     tckgen = pe.Node(mrtrix3.Tractography(), name="tckgen")
     #mrview data.nii.gz -tractography.load prob.tck
 
-    def gen_tuple(item1, item2):
-        return (item1, item2)
-
-    gen_tuple = pe.Node(
+    gen_grad_tuple = pe.Node(
         niu.Function(
             input_names=["item1", "item2"],
             output_names=["out_tuple"],
             function=gen_tuple,
         ),
-        name="gen_tuple",
+        name="gen_grad_tuple",
     )
     #use sift to filter tracks based on spherical harmonics
     #tcksift2 prob.tck FOD.mif prob_weights.txt
@@ -134,18 +133,19 @@ def init_tract_wf():
 
     # dilate mask (eddy)
     eddy_b0_mask = pe.Node(
-        fsl.BET(frac=parameters.bet_dwi, mask=True, robust=True),
+        fsl.BET(frac=0.8, mask=True, robust=True),
         name="eddy_b0_mask",
     )
 
     # Initialize output wf
-    datasink = init_tract_output_wf()
+    # datasink = init_tract_output_wf()
 
     tract_wf.connect(
         [
-            # t1 flirt
-            (inputnode, t1_skullstrip, [(("t1_file", to_list), "inputnode.in_files")]),
-            (t1_skullstrip, flirt, [("outputnode.out_file", "in_file")]),
+            # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
+            # (inputnode, t1_skullstrip, [(("t1_file", to_list), "inputnode.in_files")]),
+            # (t1_skullstrip, flirt, [("outputnode.out_file", "in_file")]),
+            (inputnode, flirt, [("t1_file", "in_file")]),
             # Generate eddy avg b0 and then feed into flirt reference
             # (inputnode, flirt, [("eddy_avg_b0", "reference")]),
             # (inputnode, eddy_avg_b0, [("eddy_file", "in_dwi")]),
@@ -156,19 +156,20 @@ def init_tract_wf():
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
             (
                 inputnode,
-                gen_tuple,
+                gen_grad_tuple,
                 [
-                    ("bvec", "item1"),
-                    ("bval", "item2")
+                    ("bvec", "item2"),
+                    ("bval", "item1")
                 ]
             ),
-            (gen_tuple, responseSD, [("out_tuple", "grad_fsl")]),
+            (gen_grad_tuple, responseSD, [("out_tuple", "grad_fsl")]),
             # (inputnode, responseSD, [("eddy_mask", "in_mask")]),
             # Combining the bval and bvec from eddy
-            (inputnode, eddy_grad_merge, [("bval", "in1")]),
-            (inputnode, eddy_grad_merge, [("bvec", "in2")]),
+            (inputnode, eddy_grad_merge, [("bval", "item1")]),
+            (inputnode, eddy_grad_merge, [("bvec", "item2")]),
             # Extracting b0 from eddy
             (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
+            # (gen_grad_tuple, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
             (eddy_grad_merge, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
             # Averaging out b0 from mrmath
             (eddy_extract_b0, eddy_mean_b0, [("out_file", "in_file")]),
@@ -185,7 +186,7 @@ def init_tract_wf():
                 ]
             ),
             # FOD gen
-            (gen_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
+            (gen_grad_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
             (
                 inputnode,
                 estimateFOD,
@@ -194,7 +195,8 @@ def init_tract_wf():
                 ]
             ),
             (responseSD, estimateFOD, [("wm_file", "wm_txt")]),
-            (inputnode, estimateFOD, [("eddy_mask", "mask_file")]),
+            # (inputnode, estimateFOD, [("eddy_mask", "mask_file")]),
+            (eddy_b0_mask, estimateFOD, [("out_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
             (gen5tt, tckgen, [("out_file", "act_file")]),
@@ -205,7 +207,8 @@ def init_tract_wf():
             (tckgen, tcksift, [("out_file", "in_tracks")]),
             # atlas flirt
 
-            (t1_skullstrip, pre_atlas_flirt,[("outputnode.out_file", "in_file")]),
+            # (t1_skullstrip, pre_atlas_flirt,[("outputnode.out_file", "in_file")]),
+            (inputnode, pre_atlas_flirt,[("t1_file", "in_file")]),
             (inputnode, pre_atlas_flirt,[("template", "reference")]),
 
             (pre_atlas_flirt, xfm_inv, [("out_matrix_file", "in_file")]),
@@ -232,27 +235,27 @@ def init_tract_wf():
             (conmatgen, outputnode, [("out_file", "inv_len_conmat")]),
             (conmatgen2, outputnode, [("out_file", "len_conmat")]),
             # datasink
-            (
-                inputnode,
-                datasink,
-                [
-                    ("subject_id", "inputnode.subject_id"),
-                    ("session_id", "inputnode.session_id"),
-                    ("output_dir", "inputnode.output_folder")
-                ]
-            ),
-            (
-                outputnode,
-                datasink,
-                [
-                    ("fod_file", "inputnode.fod_file"),
-                    ("gmwmi_file", "inputnode.gmwmi_file"),
-                    ("prob_weights", "inputnode.prob_weights"),
-                    ("shen_diff_space", "inputnode.shen_diff_space"),
-                    ("inv_len_conmat", "inputnode.inv_len_conmat"),
-                    ("len_conmat", "inputnode.len_conmat")
-                ]
-            ),
+            # (
+            #     inputnode,
+            #     datasink,
+            #     [
+            #         ("subject_id", "inputnode.subject_id"),
+            #         ("session_id", "inputnode.session_id"),
+            #         ("output_dir", "inputnode.output_folder")
+            #     ]
+            # ),
+            # (
+            #     outputnode,
+            #     datasink,
+            #     [
+            #         ("fod_file", "inputnode.fod_file"),
+            #         ("gmwmi_file", "inputnode.gmwmi_file"),
+            #         ("prob_weights", "inputnode.prob_weights"),
+            #         ("shen_diff_space", "inputnode.shen_diff_space"),
+            #         ("inv_len_conmat", "inputnode.inv_len_conmat"),
+            #         ("len_conmat", "inputnode.len_conmat")
+            #     ]
+            # ),
         ]
     )
 

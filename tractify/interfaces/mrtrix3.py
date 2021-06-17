@@ -1081,3 +1081,122 @@ class MRConvert(CommandLine):
         else:
             outname = name + '_mrconvert.' + self.inputs.extension
         return outname
+
+class DWIExtractInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-2,
+        desc='input image')
+    out_file = File(
+        argstr="%s",
+        name_template="%s_b0",
+        name_source=["in_file"],
+        keep_extension=True,
+        position=-1,
+        desc="output image",
+    )
+    bzero = traits.Bool(argstr='-bzero', desc='extract b=0 volumes')
+    nobzero = traits.Bool(argstr='-no_bzero', desc='extract non b=0 volumes')
+    singleshell = traits.Bool(
+        argstr='-singleshell', desc='extract volumes with a specific shell')
+    shell = traits.List(
+        traits.Float,
+        sep=',',
+        argstr='-shell %s',
+        desc='specify one or more gradient shells')
+
+
+class DWIExtractOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output image')
+
+
+class DWIExtract(MRTrix3Base):
+    """
+    Extract diffusion-weighted volumes, b=0 volumes, or certain shells from a
+    DWI dataset
+    Example
+    -------
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> dwiextract = mrt.DWIExtract()
+    >>> dwiextract.inputs.in_file = 'dwi.mif'
+    >>> dwiextract.inputs.bzero = True
+    >>> dwiextract.inputs.out_file = 'b0vols.mif'
+    >>> dwiextract.inputs.grad_fsl = ('bvecs', 'bvals')
+    >>> dwiextract.cmdline                             # doctest: +ELLIPSIS
+    'dwiextract -bzero -fslgrad bvecs bvals dwi.mif b0vols.mif'
+    >>> dwiextract.run()                               # doctest: +SKIP
+    """
+
+    _cmd = 'dwiextract'
+    input_spec = DWIExtractInputSpec
+    output_spec = DWIExtractOutputSpec
+
+
+class MRMathInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True,
+        argstr='%s',
+        mandatory=True,
+        position=-3,
+        desc='input image')
+    out_file = File(
+        argstr='%s', position=-1, desc='output image')
+
+    out_file = File(
+        argstr="%s",
+        name_template="%s_avg",
+        name_source=["in_file"],
+        keep_extension=True,
+        position=-1,
+        desc="output image",
+    )
+    operation = traits.Enum(
+        'mean',
+        'median',
+        'sum',
+        'product',
+        'rms',
+        'norm',
+        'var',
+        'std',
+        'min',
+        'max',
+        'absmax',
+        'magmax',
+        argstr='%s',
+        position=-2,
+        mandatory=True,
+        desc='operation to computer along a specified axis')
+    axis = traits.Int(
+        0,
+        argstr='-axis %d',
+        desc='specfied axis to perform the operation along')
+
+
+class MRMathOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output image')
+
+
+class MRMath(MRTrix3Base):
+    """
+    Compute summary statistic on image intensities
+    along a specified axis of a single image
+    Example
+    -------
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> mrmath = mrt.MRMath()
+    >>> mrmath.inputs.in_file = 'dwi.mif'
+    >>> mrmath.inputs.operation = 'mean'
+    >>> mrmath.inputs.axis = 3
+    >>> mrmath.inputs.out_file = 'dwi_mean.mif'
+    >>> mrmath.inputs.grad_fsl = ('bvecs', 'bvals')
+    >>> mrmath.cmdline                             # doctest: +ELLIPSIS
+    'mrmath -axis 3 -fslgrad bvecs bvals dwi.mif mean dwi_mean.mif'
+    >>> mrmath.run()                               # doctest: +SKIP
+    """
+
+    _cmd = 'mrmath'
+    input_spec = MRMathInputSpec
+    output_spec = MRMathOutputSpec
