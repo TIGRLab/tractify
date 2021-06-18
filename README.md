@@ -54,8 +54,8 @@ As you can see, there are other data you need to pass in aside from the diffusio
 - `template`: The template file for T1 registration (ex. [the MNI 152 non-linear template](http://nist.mni.mcgill.ca/mni-icbm152-non-linear-6th-generation-symmetric-average-brain-stereotaxic-registration-model/)).
 - `atlas`: The atlas file for parcellating the data for tractography (ex. [the Shen k=268 atlas](https://neurovault.org/images/395091/)).
 - `output_dir`: The base location of where all subject tractify outputs will be placed.
-- `--participant-label`: The id of the subject's data being run through the pipeline, for output organization (optional, default `None`).
-- `--session-label`: The id of the subject's session data being run through the pipeline, for output organization (optional, default `sub-001`).
+- `--participant-label`: The id of the subject's data being run through the pipeline, for output organization (optional, default `001`).
+- `--session-label`: The id of the subject's session data being run through the pipeline, for output organization (optional, default `01`).
 - `--num-tracts`: The id of the subject's session data being run through the pipeline, for output organization (optional, default 5000000).
 
 **Outputs**

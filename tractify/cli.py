@@ -67,14 +67,14 @@ class Parameters:
 # @click.argument("dmriprep_dir")
 @click.argument("t1_file")
 @click.argument("eddy_file")
-@click.argument("bval_file")
 @click.argument("bvec_file")
+@click.argument("bval_file")
 @click.argument("template_file")
 @click.argument("atlas_file")
 @click.argument("output_dir")
 
 # def main(num_tracts, participant_label, bids_dir, dmriprep_dir, template_file, atlas_file, output_dir):
-def main(num_tracts, participant_label, session_label, t1_file, eddy_file, bval_file, bvec_file, template_file, atlas_file, output_dir):
+def main(num_tracts, participant_label, session_label, t1_file, eddy_file, bvec_file, bval_file, template_file, atlas_file, output_dir):
     """Console script for tractify."""
 
     # layout = BIDSLayout(bids_dir, validate=False)

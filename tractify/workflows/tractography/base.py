@@ -143,14 +143,7 @@ def init_tract_wf():
     tract_wf.connect(
         [
             # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
-            # (inputnode, t1_skullstrip, [(("t1_file", to_list), "inputnode.in_files")]),
-            # (t1_skullstrip, flirt, [("outputnode.out_file", "in_file")]),
             (inputnode, flirt, [("t1_file", "in_file")]),
-            # Generate eddy avg b0 and then feed into flirt reference
-            # (inputnode, flirt, [("eddy_avg_b0", "reference")]),
-            # (inputnode, eddy_avg_b0, [("eddy_file", "in_dwi")]),
-            # (inputnode, eddy_avg_b0, [("bval", "in_bval")]),
-            # (eddy_avg_b0, flirt, [("out_file", "reference")]),
             # response function + mask
             (flirt, gen5tt, [("out_file", "in_file")]),
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
@@ -185,7 +178,7 @@ def init_tract_wf():
                     ("eddy_file", "in_file"),
                 ]
             ),
-            # FOD gen
+            # FOD generation
             (gen_grad_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
             (
                 inputnode,
@@ -195,7 +188,6 @@ def init_tract_wf():
                 ]
             ),
             (responseSD, estimateFOD, [("wm_file", "wm_txt")]),
-            # (inputnode, estimateFOD, [("eddy_mask", "mask_file")]),
             (eddy_b0_mask, estimateFOD, [("out_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
@@ -206,11 +198,8 @@ def init_tract_wf():
             (estimateFOD, tcksift, [("wm_odf", "in_fod")]),
             (tckgen, tcksift, [("out_file", "in_tracks")]),
             # atlas flirt
-
-            # (t1_skullstrip, pre_atlas_flirt,[("outputnode.out_file", "in_file")]),
             (inputnode, pre_atlas_flirt,[("t1_file", "in_file")]),
             (inputnode, pre_atlas_flirt,[("template", "reference")]),
-
             (pre_atlas_flirt, xfm_inv, [("out_matrix_file", "in_file")]),
             (flirt, xfm_concat, [("out_matrix_file", "in_file2")]),
             (xfm_inv, xfm_concat, [("out_file", "in_file")]),
@@ -234,28 +223,6 @@ def init_tract_wf():
             (atlas_flirt, outputnode, [("out_file", "shen_diff_space")]),
             (conmatgen, outputnode, [("out_file", "inv_len_conmat")]),
             (conmatgen2, outputnode, [("out_file", "len_conmat")]),
-            # datasink
-            # (
-            #     inputnode,
-            #     datasink,
-            #     [
-            #         ("subject_id", "inputnode.subject_id"),
-            #         ("session_id", "inputnode.session_id"),
-            #         ("output_dir", "inputnode.output_folder")
-            #     ]
-            # ),
-            # (
-            #     outputnode,
-            #     datasink,
-            #     [
-            #         ("fod_file", "inputnode.fod_file"),
-            #         ("gmwmi_file", "inputnode.gmwmi_file"),
-            #         ("prob_weights", "inputnode.prob_weights"),
-            #         ("shen_diff_space", "inputnode.shen_diff_space"),
-            #         ("inv_len_conmat", "inputnode.inv_len_conmat"),
-            #         ("len_conmat", "inputnode.len_conmat")
-            #     ]
-            # ),
         ]
     )
 

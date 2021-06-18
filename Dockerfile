@@ -106,9 +106,7 @@ RUN apt-get update -qq \
 RUN /fslinstaller.py -d /opt/fsl-6.0.1 -V 6.0.1 -q
 
 # FSL 6.0.1
-# Freesurfer 6.0.0
 # MRtrix3
-# ANTS
 # Python 3
 
 # MRtrix3
@@ -177,22 +175,11 @@ RUN conda install -y python=3.7.3 \
     conda build purge-all; sync && \
     conda clean -tipsy && sync
 
-# setting up an install of tractify (manual version) inside the container
-#ADD https://api.github.com/repos/TIGRLab/tractify/git/refs/heads/master version.json
-#RUN git clone -b master https://github.com/TIGRLab/tractify.git tractify
-# Following two lines assumes you are building from within a pulled tractify repo
-
 RUN pip install --upgrade pip
-# RUN pip install \
-#     numba==0.45.0 \
-#     Click==7.0 \
-#     dipy==0.16.0 \
-#     pybids==0.9.2 \
-#     nipype==1.2.0 \
-#     niworkflows==0.10.2
 
 RUN mkdir tractify
 COPY ./ tractify/
 RUN cd tractify && pip install .
 
 ENTRYPOINT ["tractify"]
+
