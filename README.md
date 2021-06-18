@@ -1,5 +1,7 @@
 # Tractify Pipeline
 
+![tract](https://user-images.githubusercontent.com/54225067/122474320-0d94df80-cf91-11eb-86c9-066c1adffb39.png)
+
 ### About
 
 Tractify is an efficient and reproducible tractography pipeline built with [Nipype](https://nipype.readthedocs.io/en/latest/). This allows anyone to get started with tractography generation by packaging a pipeline based on [MRtrix3's tractography tools](https://mrtrix.readthedocs.io/en/latest/reference/commands_list.html) and containerising it to run on any platform.
@@ -11,6 +13,8 @@ As previously mentioned, this pipeline is based on MRtrix3's tractography tools 
 4. Generate tracts from FOD and grey/white matter interface (using [tckgen](https://mrtrix.readthedocs.io/en/latest/reference/commands/tckgen.html))
 
 A visual for this process is shown below: 
+
+![method](https://user-images.githubusercontent.com/54225067/122474400-29988100-cf91-11eb-8da2-59fb303b7b3a.png)
 
 After the tracts are generated and filtered (using [tcksift2](https://mrtrix.readthedocs.io/en/latest/reference/commands/tcksift2.html)) the pipeline generates connectivity matrices for analysis. Two connectivity matrices are made using [tck2connectome](https://mrtrix.readthedocs.io/en/latest/reference/commands/tck2connectome.html), one scaling connectome edge contributions by length, and one scaling by inverse length ([see here in the docs for more info](https://mrtrix.readthedocs.io/en/latest/reference/commands/tck2connectome.html#structural-connectome-metric-options)).
 
