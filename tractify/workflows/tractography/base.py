@@ -15,10 +15,11 @@ from ...interfaces import mrtrix3
 from ...interfaces import fsl as dmri_fsl
 from .outputs import init_tract_output_wf
 from ...utils import gen_tuple
+from nipype.interfaces.freesurfer import MRIConvert
 
 from nipype.interfaces import fsl, utility as niu
 
-def init_tract_wf():
+def init_tract_wf(gen5tt_algo='fsl'):
     tract_wf = pe.Workflow(name="tract_wf")
 
     inputnode = pe.Node(
@@ -28,9 +29,8 @@ def init_tract_wf():
                 "session_id",
                 "output_dir",
                 "t1_file",
+                "fs_file",
                 "eddy_file",
-                # "eddy_mask",
-                # "eddy_avg_b0",
                 "bval",
                 "bvec",
                 "template",
@@ -49,6 +49,7 @@ def init_tract_wf():
                 "shen_diff_space",
                 "inv_len_conmat",
                 "len_conmat",
+                "len_invnodevol_conmat",
                 "gmwmi_file",
             ]
         ),
@@ -62,11 +63,11 @@ def init_tract_wf():
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
 
-    to_list = lambda x: [x]
+    #register freesurfer aseg to diffusion space if needed
+    fs_flirt = pe.Node(fsl.FLIRT(dof=6), name="fs_flirt")
 
-    # T1 should already be skull stripped and minimally preprocessed (from Freesurfer will do)
-    #5ttgen fsl -nocrop -premasked T1_diff.nii.gz 5TT.mif
-    gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='fsl', no_crop=True, premasked=True, out_file='5TT.mif'), name="gen5tt")
+    to_list = lambda x: [x]
+    
     #5tt2gmwmi 5TT.mif gmwmi.mif
     gen5ttMask = pe.Node(mrtrix3.Generate5ttMask(out_file='gmwmi.mif'), name="gen5ttMask")
 
@@ -107,9 +108,10 @@ def init_tract_wf():
 
     ## generate connectivity matrices
     #tck2connectome prob.tck shen_diff_space.nii.gz conmat_shen.csv -scale_invlength -zero_diagonal -symmetric -tck_weights_in prob_weights.txt -assignment_radial_search 2 -scale_invnodevol
-    conmatgen = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_shen.csv", scale_invlength=True, symmetric=True, zero_diagonal=True, search_radius=2, scale_invnodevol=True), name="conmatgen")
+    conmatgen = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_invlength.csv", scale_invlength=True, symmetric=True, zero_diagonal=True, search_radius=2, scale_invnodevol=True), name="conmatgen")
     #tck2connectome prob.tck shen_diff_space.nii.gz conmat_length_shen.csv -zero_diagonal -symmetric -scale_length -stat_edge mean -assignment_radial_search 2
-    conmatgen2 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_shen.csv", scale_length=True, symmetric=True, zero_diagonal=True, search_radius=2, stat_edge='mean'), name="conmatgen2")
+    conmatgen2 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length.csv", scale_length=True, symmetric=True, zero_diagonal=True, search_radius=2, stat_edge='mean'), name="conmatgen2")
+    conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=2, stat_edge='mean'), name="conmatgen3")
 
     # Convert mifs to niftis
     fod_convert = pe.Node(mrtrix3.MRConvert(out_filename="FOD.nii.gz"), name="fod_convert")
@@ -140,12 +142,43 @@ def init_tract_wf():
     # Initialize output wf
     # datasink = init_tract_output_wf()
 
+    # T1 should already be skull stripped and minimally preprocessed (from Freesurfer will do)
+    #5ttgen fsl -nocrop -premasked T1_diff.nii.gz 5TT.mif
+    if (gen5tt_algo == 'fsl'):
+        gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='fsl', no_crop=True, premasked=True, out_file='5TT.mif'), name="gen5tt")
+        tract_wf.connect(
+            [
+                # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
+                (flirt, gen5tt, [("out_file", "in_file")]),
+            ]
+        )
+    elif (gen5tt_algo == 'freesurfer'):
+        # Convert the aseg.mgz from freesurfer to nii.gz 
+        # fs_convert_mgz = pe.Node(MRIConvert(in_type='mgz', out_type='niigz', out_file='aseg.nii.gz'), name="fs_convert_mgz")
+        gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='freesurfer', no_crop=True, out_file='5TT.mif'), name="gen5tt")
+        tract_wf.connect(
+            [
+                # Pass in freesurfer aseg to gen5tt
+                # (inputnode, fs_convert_mgz, [("fs_file", "in_file")]),
+                # (fs_convert_mgz, fs_flirt, [("out_file", "in_file")]),
+                # (fs_flirt, gen5tt, [("out_file", "in_file")]),
+                (inputnode, gen5tt, [("fs_file", "in_file")]),
+                # (eddy_mean_b0, fs_flirt, [("out_file", "reference")]),
+            ]
+        )
+    else:
+        raise Exception(
+            "Invalid algorithm for 5ttgen {}. "
+            "Valid algorithms are freesurfer and fsl".format(subject_id)
+        )
+    
+
     tract_wf.connect(
         [
             # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
             (inputnode, flirt, [("t1_file", "in_file")]),
             # response function + mask
-            (flirt, gen5tt, [("out_file", "in_file")]),
+            # (flirt, gen5tt, [("out_file", "in_file")]),
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
             (
                 inputnode,
@@ -213,6 +246,8 @@ def init_tract_wf():
             (tcksift, conmatgen, [("out_weights", "in_weights")]),
             (tckgen, conmatgen2, [("out_file", "in_file")]),
             (atlas_flirt, conmatgen2, [("out_file", "in_parc")]),
+            (tckgen, conmatgen3, [("out_file", "in_file")]),
+            (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
             # convert mifs to niftis
             (gen5tt, fod_convert, [("out_file", "in_file")]),
             (gen5ttMask, gmwmi_convert, [("out_file", "in_file")]),
@@ -223,6 +258,7 @@ def init_tract_wf():
             (atlas_flirt, outputnode, [("out_file", "shen_diff_space")]),
             (conmatgen, outputnode, [("out_file", "inv_len_conmat")]),
             (conmatgen2, outputnode, [("out_file", "len_conmat")]),
+            (conmatgen3, outputnode, [("out_file", "len_invnodevol_conmat")]),
         ]
     )
 

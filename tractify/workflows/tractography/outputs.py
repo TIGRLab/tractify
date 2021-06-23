@@ -22,6 +22,7 @@ def init_tract_output_wf(subject_id, session_id):
                 "gmwmi_file",
                 "shen_diff_space",
                 "inv_len_conmat",
+                "len_invnodevol_conmat",
                 "len_conmat"
             ]
         ),
@@ -54,6 +55,7 @@ def init_tract_output_wf(subject_id, session_id):
     prefix = "sub-{}_ses-{}".format(subject_id, session_id)
     template = prefix + "_desc-{}"
     conmat_length_rename = pe.Node(niu.Rename(format_string=template.format("conmat-length") + ".csv"), name="conmat_length_rename")
+    conmat_length_invnodevol_rename = pe.Node(niu.Rename(format_string=template.format("conmat-length-invnodevol") + ".csv"), name="conmat_length_invnodevol_rename")
     conmat_invlength_rename = pe.Node(niu.Rename(format_string=template.format("conmat-invlength") + ".csv"), name="conmat_invlength_rename")
     fod_rename = pe.Node(niu.Rename(format_string=template.format("fod"), keep_ext=True), name="fod_rename")
     gwmatter_rename = pe.Node(niu.Rename(format_string=template.format("gwmatter"), keep_ext=True), name="gwmatter_rename")
@@ -74,6 +76,7 @@ def init_tract_output_wf(subject_id, session_id):
             (concat, datasink, [("built_folder", "base_directory")]),
             # Renaming the files
             (inputnode, conmat_length_rename, [("len_conmat", "in_file")]),
+            (inputnode, conmat_length_invnodevol_rename, [("len_invnodevol_conmat", "in_file")]),
             (inputnode, conmat_invlength_rename, [("inv_len_conmat", "in_file")]),
             (inputnode, fod_rename, [("fod_file", "in_file")]),
             (inputnode, probweights_rename, [("prob_weights", "in_file")]),
@@ -81,6 +84,7 @@ def init_tract_output_wf(subject_id, session_id):
             (inputnode, gwmatter_rename, [("gmwmi_file", "in_file")]),
             # Outputting the renamed files
             (conmat_length_rename, datasink, [("out_file", "@result.@len_conmat")]),
+            (conmat_length_invnodevol_rename, datasink, [("out_file", "@result.@len_invnodevol_conmat")]),
             (conmat_invlength_rename, datasink, [("out_file", "@result.@inv_len_conmat")]),
             (fod_rename, datasink, [("out_file", "@result.@fod_file")]),
             (probweights_rename, datasink, [("out_file", "@result.@prob_weights")]),
