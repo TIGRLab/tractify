@@ -34,6 +34,8 @@ As for the modules, tractify requires *at least* the listed versions of the foll
 ```
 FSL/6.0.1
 MRtrix3/3
+# Below only if using `--gen5tt-algo`, see next section "Usage"
+freesurfer/6.0.0
 ```
 This is to use FSL's registration tools and MRtrix3's tractography tools.
 
@@ -61,6 +63,8 @@ As you can see, there are other data you need to pass in aside from the diffusio
 - `--participant-label`: The id of the subject's data being run through the pipeline, for output organization (optional, default `001`).
 - `--session-label`: The id of the subject's session data being run through the pipeline, for output organization (optional, default `01`).
 - `--num-tracts`: The id of the subject's session data being run through the pipeline, for output organization (optional, default 5000000).
+- `--gen5tt-algo`: If you want to use the freesurfer algo for 5ttgen instead of using the default FSL one (see [here](https://mrtrix.readthedocs.io/en/latest/reference/commands/5ttgen.html) for details). You must run this with `--fs-file` (optional, choose from `fsl` or `freesurfer`, default `fsl`).
+- `--fs-file`: The aseg.mgz for the subject from freesurfer, for use with `--gen5tt-algo` (optional).
 
 **Outputs**
 
@@ -72,6 +76,7 @@ output_dir
         └── ses-01
             ├── sub-{id}_ses-01_desc-conmat-length.csv
             ├── sub-{id}_ses-01_desc-conmat-invlength.csv
+            ├── sub-{id}_ses-01_desc-conmat-length-invnodevol.csv
             ├── sub-{id}_ses-01_desc-fod.nii.gz
             ├── sub-{id}_ses-01_desc-gwmatter.nii.gz
             ├── sub-{id}_ses-01_desc-prob-weights.txt
@@ -80,6 +85,7 @@ output_dir
 These outputs can be described as follows:
 - `conmat-length.csv`: The connectivity matrix scaling connectome edge contributions by length.
 - `conmat-invlength.csv`: The connectivity matrix scaling connectome edge contributions by inverse length.
+- `conmat-length-invnodevol.csv`: The connectivity matrix scaling connectome edge contributions by inverse length, inversely scaled by node volumes.
 - `fod.nii.gz`: The FOD generated from the dwi and response function.
 - `gwmatter.nii.gz`: The gray white matter interface generated from the T1.
 - `prob-weights.txt`: The probability weights interface generated from the tracts (see [tcksift2](https://mrtrix.readthedocs.io/en/latest/reference/commands/tcksift2.html)).
