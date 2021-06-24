@@ -9,8 +9,6 @@ from nipype.utils.filemanip import fname_presuffix
 from numba import cuda
 from bids import BIDSLayout
 
-from niworkflows.anat.ants import init_brain_extraction_wf
-
 from ...interfaces import mrtrix3
 from ...interfaces import fsl as dmri_fsl
 from .outputs import init_tract_output_wf
@@ -63,9 +61,6 @@ def init_tract_wf(gen5tt_algo='fsl'):
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
 
-    #register freesurfer aseg to diffusion space if needed
-    fs_flirt = pe.Node(fsl.FLIRT(dof=6), name="fs_flirt")
-
     to_list = lambda x: [x]
     
     #5tt2gmwmi 5TT.mif gmwmi.mif
@@ -98,12 +93,12 @@ def init_tract_wf(gen5tt_algo='fsl'):
     ## atlas reg
     #flirt -in T1w_brain.nii.gz -ref MNI152_T1_1mm_brain.nii.gz -omat xformT1_2_MNI.mat
     pre_atlas_flirt = pe.Node(fsl.FLIRT(), name="pre_atlas_flirt")
-    #convert_xfm -omat xformMNI_2_T1.mat -inverse xformT12MNI.mat
+    #convert_xfm -omat xformMNI_2_T1.mat -inverse xformT12MNI.mat (inverse, now MNI -> T1)
     xfm_inv = pe.Node(fsl.ConvertXFM(invert_xfm=True), name="xfm_inv")
-    #convert_xfm -omat xformMNI_2_diff.mat -concat xformT1_2_diff.mat xformMNI_2_T1.mat
+    #convert_xfm -omat xformMNI_2_diff.mat -concat xformT1_2_diff.mat xformMNI_2_T1.mat (concatenating MNI -> T1 + T1 -> diff, now MNI -> diff)
     xfm_concat = pe.Node(fsl.ConvertXFM(concat_xfm=True), name="xfm_concat")
 
-    #flirt -in shen268.nii.gz -ref T1_diff.nii.gz -applyxfm -init xformMNI_2_diff.mat -interp nearestneighbour -out shen_diff_space.nii.gz
+    #flirt -in shen268.nii.gz -ref T1_diff.nii.gz -applyxfm -init xformMNI_2_diff.mat -interp nearestneighbour -out shen_diff_space.nii.gz (shen to diffusion space, using MNI->diff)
     atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour'), name="atlas_flirt")
 
     ## generate connectivity matrices
@@ -116,16 +111,6 @@ def init_tract_wf(gen5tt_algo='fsl'):
     # Convert mifs to niftis
     fod_convert = pe.Node(mrtrix3.MRConvert(out_filename="FOD.nii.gz"), name="fod_convert")
     gmwmi_convert = pe.Node(mrtrix3.MRConvert(out_filename="gmwmi.nii.gz"), name="gmwmi_convert")
-
-    # Merge the bvec and bval from eddy
-    eddy_grad_merge = pe.Node(
-        niu.Function(
-            input_names=["item1", "item2"],
-            output_names=["out_tuple"],
-            function=gen_tuple,
-        ),
-        name="eddy_grad_merge",
-    )
 
     # Extract b0s from the eddy using mrtrix3
     eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True), name="eddy_extract_b0")
@@ -180,6 +165,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # response function + mask
             # (flirt, gen5tt, [("out_file", "in_file")]),
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
+            # Combining the bval and bvec from eddy
             (
                 inputnode,
                 gen_grad_tuple,
@@ -189,14 +175,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
                 ]
             ),
             (gen_grad_tuple, responseSD, [("out_tuple", "grad_fsl")]),
-            # (inputnode, responseSD, [("eddy_mask", "in_mask")]),
-            # Combining the bval and bvec from eddy
-            (inputnode, eddy_grad_merge, [("bval", "item1")]),
-            (inputnode, eddy_grad_merge, [("bvec", "item2")]),
             # Extracting b0 from eddy
             (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
-            # (gen_grad_tuple, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
-            (eddy_grad_merge, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
+            (gen_grad_tuple, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
             # Averaging out b0 from mrmath
             (eddy_extract_b0, eddy_mean_b0, [("out_file", "in_file")]),
             (eddy_mean_b0, flirt, [("out_file", "reference")]),
