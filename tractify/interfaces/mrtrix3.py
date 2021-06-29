@@ -358,9 +358,11 @@ class ResponseSDInputSpec(MRTrix3BaseInputSpec):
         usedefault=True,
         desc='output WM response text file')
     gm_file = File(
-        argstr='%s', position=-2, desc='output GM response text file')
+        'gm.txt', argstr='%s', position=-2, 
+        usedefault=True, desc='output GM response text file')
     csf_file = File(
-        argstr='%s', position=-1, desc='output CSF response text file')
+        'csf.txt',argstr='%s', position=-1, 
+        usedefault=True, desc='output CSF response text file')
     in_mask = File(
         exists=True, argstr='-mask %s', desc='provide initial mask image')
     max_sh = InputMultiObject(
@@ -432,12 +434,12 @@ class EstimateFODInputSpec(MRTrix3BaseInputSpec):
         usedefault=True,
         mandatory=True,
         desc='output WM ODF')
-    #gm_txt = File(argstr='%s', position=-4, desc='GM response text file')
-    #gm_odf = File('gm.mif', usedefault=True, argstr='%s',
-    #              position=-3, desc='output GM ODF')
-    #csf_txt = File(argstr='%s', position=-2, desc='CSF response text file')
-    #csf_odf = File('csf.mif', usedefault=True, argstr='%s',
-    #               position=-1, desc='output CSF ODF')
+    gm_txt = File(argstr='%s', position=-4, desc='GM response text file')
+    gm_odf = File('gm.mif', usedefault=True, argstr='%s',
+                 position=-3, desc='output GM ODF')
+    csf_txt = File(argstr='%s', position=-2, desc='CSF response text file')
+    csf_odf = File('csf.mif', usedefault=True, argstr='%s',
+                  position=-1, desc='output CSF ODF')
     mask_file = File(exists=True, argstr='-mask %s', desc='mask image')
 
     # DW Shell selection options
@@ -447,7 +449,7 @@ class EstimateFODInputSpec(MRTrix3BaseInputSpec):
         argstr='-shell %s',
         desc='specify one or more dw gradient shells')
     max_sh = traits.Int(
-        8, usedefault=True,
+        8, 
         argstr='-lmax %d',
         desc='maximum harmonic degree of response function')
     in_dirs = File(
@@ -1106,10 +1108,18 @@ class DWIExtractInputSpec(MRTrix3BaseInputSpec):
         sep=',',
         argstr='-shell %s',
         desc='specify one or more gradient shells')
+    export_grad_fsl = traits.Tuple(
+        File(exists=False),
+        File(exists=False),
+        argstr="--export_grad_fsl %s %s",
+        desc="(bvecs, bvals) dw gradient scheme (FSL format)"
+    )
 
 
 class DWIExtractOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output image')
+    export_bvec = File(exists=True, desc='exported FSL bvec')
+    export_bval = File(exists=True, desc='exported FSL bval')
 
 
 class DWIExtract(MRTrix3Base):
@@ -1132,6 +1142,26 @@ class DWIExtract(MRTrix3Base):
     _cmd = 'dwiextract'
     input_spec = DWIExtractInputSpec
     output_spec = DWIExtractOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+    #     print("YA")
+    #     if self.inputs.export_grad_fsl != Undefined:
+    #         print("YO")
+    #         print(self.inputs.export_grad_fsl)
+    #         outputs['export_bvec'] = op.abspath(self.inputs.export_grad_fsl[0])
+    #         outputs['export_bval'] = op.abspath(self.inputs.export_grad_fsl[1])
+        print(outputs)
+        output_dir = op.dirname(outputs["out_file"])
+        print(output_dir)
+        
+        outputs['export_bvec'] = op.join(output_dir, self.inputs.export_grad_fsl[0])
+        outputs['export_bval'] = op.join(output_dir, self.inputs.export_grad_fsl[1])
+        
+        # outputs['export_bvec'] = op.abspath(self.inputs.export_grad_fsl[0])
+        # outputs['export_bval'] = op.abspath(self.inputs.export_grad_fsl[1])
+        return outputs
 
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):

@@ -64,7 +64,8 @@ def init_single_ses_wf(subject_id, session_id, parameters):
                     ("outputnode.shen_diff_space", "inputnode.shen_diff_space"),
                     ("outputnode.inv_len_conmat", "inputnode.inv_len_conmat"),
                     ("outputnode.len_conmat", "inputnode.len_conmat"),
-                    ("outputnode.len_invnodevol_conmat", "inputnode.len_invnodevol_conmat")
+                    ("outputnode.len_invnodevol_conmat", "inputnode.len_invnodevol_conmat"),
+                    ("outputnode.sse", "inputnode.sse")
                 ],
             )
         ]
