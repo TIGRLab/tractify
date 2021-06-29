@@ -1146,21 +1146,10 @@ class DWIExtract(MRTrix3Base):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
-    #     print("YA")
-    #     if self.inputs.export_grad_fsl != Undefined:
-    #         print("YO")
-    #         print(self.inputs.export_grad_fsl)
-    #         outputs['export_bvec'] = op.abspath(self.inputs.export_grad_fsl[0])
-    #         outputs['export_bval'] = op.abspath(self.inputs.export_grad_fsl[1])
-        print(outputs)
         output_dir = op.dirname(outputs["out_file"])
-        print(output_dir)
         
         outputs['export_bvec'] = op.join(output_dir, self.inputs.export_grad_fsl[0])
         outputs['export_bval'] = op.join(output_dir, self.inputs.export_grad_fsl[1])
-        
-        # outputs['export_bvec'] = op.abspath(self.inputs.export_grad_fsl[0])
-        # outputs['export_bval'] = op.abspath(self.inputs.export_grad_fsl[1])
         return outputs
 
 

@@ -115,23 +115,23 @@ def init_tract_wf(gen5tt_algo='fsl'):
     gmwmi_convert = pe.Node(mrtrix3.MRConvert(out_filename="gmwmi.nii.gz"), name="gmwmi_convert")
 
     # Extract b0s from the eddy using mrtrix3
-    eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True), name="eddy_extract_b0")
+    eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True, out_file="data_ud_b0.nii.gz", export_grad_fsl=("data_ud_b0.new_bvecs", "data_ud_b0.new_bval")), name="eddy_extract_b0")
 
     # Avg out the b0s from eddy
     eddy_mean_b0 = pe.Node(mrtrix3.MRMath(operation='mean', axis=3), name="eddy_mean_b0")
 
     # dilate mask (eddy)
     eddy_b0_mask = pe.Node(
-        fsl.BET(frac=0.8, mask=True, robust=True),
+        fsl.BET(frac=0.5, mask=True, robust=True),
         name="eddy_b0_mask",
     )
 
     # Extract b1000 from the eddy using mrtrix3
-    eddy_extract_b1000 = pe.Node(mrtrix3.DWIExtract(shell=[1000], out_file="data_ud_b1000.nii.gz", export_grad_fsl=("data.new_bvecs", "data.new_bval")), name="eddy_extract_b1000")
+    eddy_extract_b1000 = pe.Node(mrtrix3.DWIExtract(shell=[1000], out_file="data_ud_b1000.nii.gz", export_grad_fsl=("data_ud_b1000.new_bvecs", "data_ud_b1000.new_bval")), name="eddy_extract_b1000")
 
     # Mask extracted b1000
     eddy_b1000_mask = pe.Node(
-        fsl.BET(frac=0.8, mask=True, robust=True),
+        fsl.BET(frac=0.5, mask=True, robust=True),
         name="eddy_b1000_mask",
     )
 
