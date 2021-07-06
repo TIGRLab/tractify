@@ -58,7 +58,7 @@ def init_single_ses_wf(subject_id, session_id, parameters):
                 datasink_wf,
                 [
                     # Outputs
-                    ("outputnode.fod_file", "inputnode.fod_file"),
+                    ("outputnode.5tt_file", "inputnode.5tt_file"),
                     ("outputnode.gmwmi_file", "inputnode.gmwmi_file"),
                     ("outputnode.prob_weights", "inputnode.prob_weights"),
                     ("outputnode.shen_diff_space", "inputnode.shen_diff_space"),

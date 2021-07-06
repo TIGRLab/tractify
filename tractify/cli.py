@@ -106,7 +106,7 @@ def main(gen5tt_algo, fs_file, num_tracts, participant_label, session_label, t1_
             os.environ["SUBJECTS_DIR"]
         except:
             print("No SUBJECTS_DIR environment variable found for"
-            "freesurfer, using '" + os.path.dirname(fs_file) + "' instead")
+            " freesurfer, using '" + os.path.dirname(fs_file) + "' instead")
             os.environ["SUBJECTS_DIR"] = os.path.dirname(fs_file)
 
     wf = init_single_ses_wf(participant_label, session_label, parameters)

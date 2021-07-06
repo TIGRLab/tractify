@@ -42,7 +42,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "fod_file",
+                "5tt_file",
                 "prob_weights",
                 "shen_diff_space",
                 "inv_len_conmat",
@@ -60,7 +60,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
 
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
-    flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
+    flirt = pe.Node(fsl.FLIRT(dof=6, cost='bbr'), name="t1_flirt")
 
     to_list = lambda x: [x]
     
@@ -111,7 +111,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
     conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, keep_unassigned=True), name="conmatgen3")
 
     # Convert mifs to niftis
-    fod_convert = pe.Node(mrtrix3.MRConvert(out_filename="FOD.nii.gz"), name="fod_convert")
+    gen5tt_convert = pe.Node(mrtrix3.MRConvert(out_filename="5TT.nii.gz"), name="gen5tt_convert")
     gmwmi_convert = pe.Node(mrtrix3.MRConvert(out_filename="gmwmi.nii.gz"), name="gmwmi_convert")
 
     # Extract b0s from the eddy using mrtrix3
@@ -127,7 +127,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
     )
 
     # Extract b1000 from the eddy using mrtrix3
-    eddy_extract_b1000 = pe.Node(mrtrix3.DWIExtract(shell=[1000], out_file="data_ud_b1000.nii.gz", export_grad_fsl=("data_ud_b1000.new_bvecs", "data_ud_b1000.new_bval")), name="eddy_extract_b1000")
+    eddy_extract_b1000 = pe.Node(mrtrix3.DWIExtract(shell=[0,1000], out_file="data_ud_b1000.nii.gz", export_grad_fsl=("data_ud_b1000.new_bvecs", "data_ud_b1000.new_bval")), name="eddy_extract_b1000")
 
     # Mask extracted b1000
     eddy_b1000_mask = pe.Node(
@@ -230,7 +230,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
             (tcksift, conmatgen3, [("out_weights", "in_weights")]),
             # convert mifs to niftis
-            (gen5tt, fod_convert, [("out_file", "in_file")]),
+            (gen5tt, gen5tt_convert, [("out_file", "in_file")]),
             (gen5ttMask, gmwmi_convert, [("out_file", "in_file")]),
             # Extracting b1000 from eddy
             (inputnode, eddy_extract_b1000, [("eddy_file", "in_file")]),
@@ -243,7 +243,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_extract_b1000, dtifit, [("export_bval", "bvals")]),
             (eddy_extract_b1000, dtifit, [("export_bvec", "bvecs")]),
             # Outputnode
-            (fod_convert, outputnode, [("converted", "fod_file")]),
+            (gen5tt_convert, outputnode, [("converted", "5tt_file")]),
             (gmwmi_convert, outputnode, [("converted", "gmwmi_file")]),
             (tcksift, outputnode, [("out_weights", "prob_weights")]),
             (atlas_flirt, outputnode, [("out_file", "shen_diff_space")]),
