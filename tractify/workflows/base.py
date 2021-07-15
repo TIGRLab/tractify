@@ -61,9 +61,7 @@ def init_single_ses_wf(subject_id, session_id, parameters):
                     ("outputnode.5tt_file", "inputnode.5tt_file"),
                     ("outputnode.gmwmi_file", "inputnode.gmwmi_file"),
                     ("outputnode.prob_weights", "inputnode.prob_weights"),
-                    ("outputnode.shen_diff_space", "inputnode.shen_diff_space"),
-                    ("outputnode.inv_len_conmat", "inputnode.inv_len_conmat"),
-                    ("outputnode.len_conmat", "inputnode.len_conmat"),
+                    ("outputnode.atlas_diff_space", "inputnode.atlas_diff_space"),
                     ("outputnode.len_invnodevol_conmat", "inputnode.len_invnodevol_conmat"),
                     ("outputnode.sse", "inputnode.sse")
                 ],

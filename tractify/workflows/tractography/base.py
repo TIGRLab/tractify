@@ -44,9 +44,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             fields=[
                 "5tt_file",
                 "prob_weights",
-                "shen_diff_space",
-                "inv_len_conmat",
-                "len_conmat",
+                "atlas_diff_space",
                 "len_invnodevol_conmat",
                 "gmwmi_file",
                 "sse",
@@ -60,7 +58,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
 
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
-    flirt = pe.Node(fsl.FLIRT(dof=6, cost='bbr'), name="t1_flirt")
+    flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
 
     to_list = lambda x: [x]
     
@@ -104,10 +102,6 @@ def init_tract_wf(gen5tt_algo='fsl'):
     atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour', cost='bbr'), name="atlas_flirt")
 
     ## generate connectivity matrices
-    #tck2connectome prob.tck shen_diff_space.nii.gz conmat_shen.csv -scale_invlength -zero_diagonal -symmetric -tck_weights_in prob_weights.txt -assignment_radial_search 2 -scale_invnodevol
-    conmatgen = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_invlength.csv", scale_invlength=True, symmetric=True, zero_diagonal=True, search_radius=4, scale_invnodevol=True), name="conmatgen")
-    #tck2connectome prob.tck shen_diff_space.nii.gz conmat_length_shen.csv -zero_diagonal -symmetric -scale_length -stat_edge mean -assignment_radial_search 2
-    conmatgen2 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length.csv", scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, stat_edge='mean'), name="conmatgen2")
     conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, keep_unassigned=True), name="conmatgen3")
 
     # Convert mifs to niftis
@@ -192,7 +186,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # Skulstrip b0 using BET
             (eddy_mean_b0, eddy_b0_mask, [("out_file", "in_file")]),
             # Generate eddy mask and then feed into responseSD
-            (eddy_b0_mask, responseSD, [("out_file", "in_mask")]),
+            (eddy_b0_mask, responseSD, [("mask_file", "in_mask")]),
             (inputnode, responseSD, [("eddy_file", "in_file")]),
             (gen5tt, responseSD, [("out_file", "mtt_file")]),
             # FOD generation
@@ -201,7 +195,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (responseSD, estimateFOD, [("wm_file", "wm_txt")]),
             (responseSD, estimateFOD, [("gm_file", "gm_txt")]),
             (responseSD, estimateFOD, [("csf_file", "csf_txt")]),
-            (eddy_b0_mask, estimateFOD, [("out_file", "mask_file")]),
+            (eddy_b0_mask, estimateFOD, [("mask_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
             (gen5tt, tckgen, [("out_file", "act_file")]),
@@ -221,11 +215,6 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (flirt, atlas_flirt, [("out_file", "reference")]),
             (xfm_concat, atlas_flirt, [("out_file", "in_matrix_file")]),
             # Generate connectivity matrices
-            (tckgen, conmatgen, [("out_file", "in_file")]),
-            (atlas_flirt, conmatgen, [("out_file", "in_parc")]),
-            (tcksift, conmatgen, [("out_weights", "in_weights")]),
-            (tckgen, conmatgen2, [("out_file", "in_file")]),
-            (atlas_flirt, conmatgen2, [("out_file", "in_parc")]),
             (tckgen, conmatgen3, [("out_file", "in_file")]),
             (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
             (tcksift, conmatgen3, [("out_weights", "in_weights")]),
@@ -246,9 +235,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (gen5tt_convert, outputnode, [("converted", "5tt_file")]),
             (gmwmi_convert, outputnode, [("converted", "gmwmi_file")]),
             (tcksift, outputnode, [("out_weights", "prob_weights")]),
-            (atlas_flirt, outputnode, [("out_file", "shen_diff_space")]),
-            (conmatgen, outputnode, [("out_file", "inv_len_conmat")]),
-            (conmatgen2, outputnode, [("out_file", "len_conmat")]),
+            (atlas_flirt, outputnode, [("out_file", "atlas_diff_space")]),
             (conmatgen3, outputnode, [("out_file", "len_invnodevol_conmat")]),
             (dtifit, outputnode, [("sse", "sse")]),
         ]
