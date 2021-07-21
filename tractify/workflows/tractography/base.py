@@ -92,14 +92,14 @@ def init_tract_wf(gen5tt_algo='fsl'):
 
     ## atlas reg
     #flirt -in T1w_brain.nii.gz -ref MNI152_T1_1mm_brain.nii.gz -omat xformT1_2_MNI.mat
-    pre_atlas_flirt = pe.Node(fsl.FLIRT(cost='bbr'), name="pre_atlas_flirt")
+    pre_atlas_flirt = pe.Node(fsl.FLIRT(), name="pre_atlas_flirt")
     #convert_xfm -omat xformMNI_2_T1.mat -inverse xformT12MNI.mat (inverse, now MNI -> T1)
     xfm_inv = pe.Node(fsl.ConvertXFM(invert_xfm=True), name="xfm_inv")
     #convert_xfm -omat xformMNI_2_diff.mat -concat xformT1_2_diff.mat xformMNI_2_T1.mat (concatenating MNI -> T1 + T1 -> diff, now MNI -> diff)
     xfm_concat = pe.Node(fsl.ConvertXFM(concat_xfm=True), name="xfm_concat")
 
     #flirt -in shen268.nii.gz -ref T1_diff.nii.gz -applyxfm -init xformMNI_2_diff.mat -interp nearestneighbour -out shen_diff_space.nii.gz (shen to diffusion space, using MNI->diff)
-    atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour', cost='bbr'), name="atlas_flirt")
+    atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour'), name="atlas_flirt")
 
     ## generate connectivity matrices
     conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, keep_unassigned=True), name="conmatgen3")
