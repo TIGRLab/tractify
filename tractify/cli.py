@@ -4,6 +4,7 @@
 import os
 import sys
 import click
+import subprocess
 from bids import BIDSLayout
 
 from . import utils
@@ -115,6 +116,30 @@ def main(gen5tt_algo, fs_file, num_tracts, participant_label, session_label, t1_
     wf.config["execution"]["remove_unnecessary_outputs"] = False
     wf.config["execution"]["keep_inputs"] = True
     wf.run()
+
+    # Output the sse file to a text output
+    # Get string of sse output value
+    sse_node = next(node.replace('.', '/') for node in wf.list_node_names() if 'dtifit' in node)
+
+    # Get the paths of the
+    subject_session_base = 'single_subject_' + participant_label + '_wf'
+    sse_file = os.path.join(work_dir, subject_session_base, sse_node, 'dtifit__sse.nii.gz')
+
+    # If the sse was generated 
+    if (os.path.isfile(sse_file)):
+        sse_txt_base = 'sub_' + participant_label + '_ses_' + session_label + '_sse.txt'
+        sse_txt_scratch = os.path.join(work_dir, subject_session_base, sse_node, sse_txt_base)
+
+        # Run the fslstats command on the sse and redirect it to a text output
+        sse_dtifit_value_command = ['fslstats' , sse_file, '-M']
+        my_env = os.environ.copy()
+        my_env["PATH"] = "/usr/sbin:/sbin:" + my_env["PATH"]
+        sse_txt_file = open(sse_txt_scratch, "w")
+        subprocess.call(sse_dtifit_value_command, stdout=sse_txt_file)
+        sse_txt_file.close()
+        print('Output sse text value is in ' + sse_txt_scratch)
+    else:
+        print("SSE wasn't generated, will not output merged text value")
 
     return 0
 
