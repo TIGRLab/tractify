@@ -1,4 +1,4 @@
-FROM ubuntu:xenial-20161213
+FROM ubuntu:xenial-20210722
 
 # Used command:
 # neurodocker generate docker --base=debian:stretch --pkg-manager=apt
@@ -17,37 +17,6 @@ RUN apt-get update && \
         gcc \
         git \
         libstdc++6
-
-ARG DEBIAN_FRONTEND="noninteractive"
-
-ENV LANG="en_US.UTF-8" \
-    LC_ALL="en_US.UTF-8" \
-    ND_ENTRYPOINT="/neurodocker/startup.sh"
-RUN export ND_ENTRYPOINT="/neurodocker/startup.sh" \
-    && apt-get update -qq \
-    && apt-get install -y -q --no-install-recommends \
-           apt-utils \
-           bzip2 \
-           ca-certificates \
-           curl \
-           locales \
-           unzip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
-    && dpkg-reconfigure --frontend=noninteractive locales \
-    && update-locale LANG="en_US.UTF-8" \
-    && chmod 777 /opt && chmod a+s /opt \
-    && mkdir -p /neurodocker \
-    && if [ ! -f "$ND_ENTRYPOINT" ]; then \
-         echo '#!/usr/bin/env bash' >> "$ND_ENTRYPOINT" \
-    &&   echo 'set -e' >> "$ND_ENTRYPOINT" \
-    &&   echo 'export USER="${USER:=`whoami`}"' >> "$ND_ENTRYPOINT" \
-    &&   echo 'if [ -n "$1" ]; then "$@"; else /usr/bin/env bash; fi' >> "$ND_ENTRYPOINT"; \
-    fi \
-    && chmod -R 777 /neurodocker && chmod a+s /neurodocker
-
-ENTRYPOINT ["/neurodocker/startup.sh"]
 
 # SETUP taken from fmriprep:latest, installs C compiler for ANTS
 # Prepare environment
@@ -69,9 +38,9 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install latest pandoc
-RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/releases/download/2.2.2.1/pandoc-2.2.2.1-1-amd64.deb" && \
-    dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
-    rm pandoc-2.2.2.1-1-amd64.deb
+# RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/releases/download/2.2.2.1/pandoc-2.2.2.1-1-amd64.deb" && \
+#     dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
+#     rm pandoc-2.2.2.1-1-amd64.deb
 
 WORKDIR /
 
@@ -123,10 +92,11 @@ RUN apt-get install -y --no-install-recommends \
     git \
     ca-certificates
 RUN mkdir /mrtrix
-RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0_RC3 /mrtrix
+# RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0_RC3 /mrtrix
+RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0.2 /mrtrix
 WORKDIR /mrtrix
 # Checkout version used in the lab: 20180128
-RUN git checkout f098f097ccbb3e5efbb8f5552f13e0997d161cce
+# RUN git checkout f098f097ccbb3e5efbb8f5552f13e0997d161cce
 ENV CXX=/usr/bin/clang++
 RUN ./configure
 RUN ./build
@@ -136,7 +106,7 @@ ENV PATH=/mrtrix/bin:$PATH
 WORKDIR /
 
 # Installing freesurfer
-RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/6.0.1/freesurfer-Linux-centos6_x86_64-stable-pub-v6.0.1.tar.gz \
+RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.1.0/freesurfer-linux-centos8_x86_64-7.1.0.tar.gz \
     | tar zxv --no-same-owner -C /opt \
     --exclude='freesurfer/diffusion' \
     --exclude='freesurfer/docs' \
