@@ -3,14 +3,14 @@ name: Deploy Tractify Container
 on:
   # Automatic pushes will release as unstable
   push:
-    branches: [ main ]
+    branches: [ main, input_change ]
     paths: 'tractify/*'
   pull_request:
-    branches: [ main ]
+    branches: [ main, input_change ]
     paths: 'tractify/*'
   # Manual push will release as latest
   workflow_dispatch:
-    branches: [ main ]
+    branches: [ main, input_change ]
     paths: 'tractify/*'
     inputs:
       version:
