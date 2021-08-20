@@ -92,7 +92,7 @@ RUN apt-get install -y --no-install-recommends \
     git \
     ca-certificates
 RUN mkdir /mrtrix
-# RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0_RC3 /mrtrix
+
 RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0.2 /mrtrix
 WORKDIR /mrtrix
 # Checkout version used in the lab: 20180128
