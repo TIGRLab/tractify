@@ -14,7 +14,7 @@ on:
     paths: 'tractify/*'
     inputs:
       version:
-        description: 'Docker Push Version'     
+        description: 'Docker Push Version'
         required: false
         default: 'unstable'
   

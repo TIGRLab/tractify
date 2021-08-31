@@ -1,10 +1,5 @@
 FROM ubuntu:xenial-20210722
 
-# Used command:
-# neurodocker generate docker --base=debian:stretch --pkg-manager=apt
-# --ants version=latest method=source --mrtrix3 version=3.0_RC3
-# --freesurfer version=6.0.0 method=binaries --fsl version=6.0.1 method=binaries
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         bc \
@@ -16,83 +11,28 @@ RUN apt-get update && \
         unzip \
         gcc \
         git \
-        libstdc++6
+        libstdc++6 \
+        python \
+        ca-certificates \
+        libeigen3-dev \
+        clang \
+        zlib1g-dev \
+        libqt4-opengl-dev \
+        libgl1-mesa-dev \
+        libopenblas-base
 
-# SETUP taken from fmriprep:latest, installs C compiler for ANTS
-# Prepare environment
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-                    curl \
-                    bzip2 \
-                    ca-certificates \
-                    xvfb \
-                    cython3 \
-                    build-essential \
-                    autoconf \
-                    libtool \
-                    pkg-config \
-                    git && \
-    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
-    apt-get install -y --no-install-recommends \
-                    nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install latest pandoc
-# RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/releases/download/2.2.2.1/pandoc-2.2.2.1-1-amd64.deb" && \
-#     dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
-#     rm pandoc-2.2.2.1-1-amd64.deb
-
-WORKDIR /
-
-
+# Build FSL in container
 ENV FSLDIR="/opt/fsl-6.0.1" \
     PATH="/opt/fsl-6.0.1/bin:$PATH" \
     FSLOUTPUTTYPE="NIFTI_GZ"
-RUN apt-get update -qq \
-    && apt-get install -y -q --no-install-recommends \
-           bc \
-           dc \
-           file \
-           libfontconfig1 \
-           libfreetype6 \
-           libgl1-mesa-dev \
-           libglu1-mesa-dev \
-           libgomp1 \
-           libice6 \
-           libxcursor1 \
-           libxft2 \
-           libxinerama1 \
-           libxrandr2 \
-           libxrender1 \
-           libxt6 \
-           python \
-           wget \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo "Downloading FSL ..." \
+RUN echo "Downloading FSL ..." \
     && wget -q http://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py \
     && chmod 775 fslinstaller.py
 RUN /fslinstaller.py -d /opt/fsl-6.0.1 -V 6.0.1 -q
 
-# FSL 6.0.1
-# MRtrix3
-# Python 3
-
 # MRtrix3
 # from https://hub.docker.com/r/neurology/mrtrix/dockerfile
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends \
-    python \
-    python-numpy \
-    libeigen3-dev \
-    clang \
-    zlib1g-dev \
-    libqt4-opengl-dev \
-    libgl1-mesa-dev \
-    git \
-    ca-certificates
 RUN mkdir /mrtrix
-
 RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0.2 /mrtrix
 WORKDIR /mrtrix
 # Checkout version used in the lab: 20180128
@@ -157,23 +97,8 @@ ENV PATH="/usr/local/miniconda/bin:$PATH" \
     LC_ALL="C.UTF-8" \
     PYTHONNOUSERSITE=1
 
-# add credentials on build
+# Add credentials on build
 RUN mkdir ~/.ssh && ln -s /run/secrets/host_ssh_key ~/.ssh/id_rsa
-# Getting required installation tools
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libopenblas-base
-
-# Precaching atlases
-ENV TEMPLATEFLOW_HOME="/opt/templateflow"
-RUN mkdir -p $TEMPLATEFLOW_HOME
-RUN pip install --no-cache-dir "templateflow>=0.3.0,<0.4.0a0" && \
-    python -c "from templateflow import api as tfapi; \
-               tfapi.get('MNI152NLin6Asym', atlas=None); \
-               tfapi.get('MNI152NLin2009cAsym', atlas=None); \
-               tfapi.get('OASIS30ANTs');" && \
-    find $TEMPLATEFLOW_HOME -type d -exec chmod go=u {} + && \
-    find $TEMPLATEFLOW_HOME -type f -exec chmod go=u {} +
 
 RUN conda install -y python=3.7.3 \
                      pip=19.1 \
