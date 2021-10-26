@@ -108,6 +108,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
     gen5tt_convert = pe.Node(mrtrix3.MRConvert(out_filename="5TT.nii.gz"), name="gen5tt_convert")
     gmwmi_convert = pe.Node(mrtrix3.MRConvert(out_filename="gmwmi.nii.gz"), name="gmwmi_convert")
 
+    # Bias the eddy using mrtrix3
+    eddy_biascorrect = pe.Node(mrtrix3.DWIBiasCorrect(out_file="data_ud_biascorrect_ants.nii.gz", use_ants=True), name="eddy_biascorrect_ants")
+
     # Extract b0s from the eddy using mrtrix3
     eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True, out_file="data_ud_b0.nii.gz", export_grad_fsl=("data_ud_b0.new_bvecs", "data_ud_b0.new_bval")), name="eddy_extract_b0")
 
@@ -177,8 +180,13 @@ def init_tract_wf(gen5tt_algo='fsl'):
                 ]
             ),
             (gen_grad_tuple, responseSD, [("out_tuple", "grad_fsl")]),
+            # Bias correct eddy
+            (inputnode, eddy_biascorrect, [("eddy_file", "in_file")]),
+            (gen_grad_tuple, eddy_biascorrect, [("out_tuple", "grad_fsl")]),
+            # Averaging out b0 from mrmath
+            (eddy_biascorrect, eddy_extract_b0, [("out_file", "in_file")]),
             # Extracting b0 from eddy
-            (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
+            # (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
             (gen_grad_tuple, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
             # Averaging out b0 from mrmath
             (eddy_extract_b0, eddy_mean_b0, [("out_file", "in_file")]),
@@ -228,7 +236,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_extract_b1000, eddy_b1000_mask, [("out_file", "in_file")]),
             # Generate sse from dtifit
             (eddy_extract_b1000, dtifit, [("out_file", "dwi")]),
-            (eddy_b1000_mask, dtifit, [("out_file", "mask")]),
+            (eddy_b1000_mask, dtifit, [("mask_file", "mask")]),
             (eddy_extract_b1000, dtifit, [("export_bval", "bvals")]),
             (eddy_extract_b1000, dtifit, [("export_bvec", "bvecs")]),
             # Outputnode

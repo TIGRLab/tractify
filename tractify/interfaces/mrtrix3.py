@@ -1152,6 +1152,70 @@ class DWIExtract(MRTrix3Base):
         outputs['export_bval'] = op.join(output_dir, self.inputs.export_grad_fsl[1])
         return outputs
 
+class DWIBiasCorrectInputSpec(MRTrix3BaseInputSpec):
+    in_file = File(
+        exists=True, argstr="%s", position=-2, mandatory=True, desc="input DWI image"
+    )
+    in_mask = File(argstr="-mask %s", desc="input mask image for bias field estimation")
+    use_ants = traits.Bool(
+        argstr="ants",
+        mandatory=True,
+        desc="use ANTS N4 to estimate the inhomogeneity field",
+        position=0,
+        xor=["use_fsl"],
+    )
+    use_fsl = traits.Bool(
+        argstr="fsl",
+        mandatory=True,
+        desc="use FSL FAST to estimate the inhomogeneity field",
+        position=0,
+        xor=["use_ants"],
+    )
+    bias = File(argstr="-bias %s", desc="bias field")
+    out_file = File(
+        name_template="%s_biascorr",
+        name_source="in_file",
+        keep_extension=True,
+        argstr="%s",
+        position=-1,
+        desc="the output bias corrected DWI image",
+        genfile=True,
+    )
+
+
+class DWIBiasCorrectOutputSpec(TraitedSpec):
+    bias = File(desc="the output bias field", exists=True)
+    out_file = File(desc="the output bias corrected DWI image", exists=True)
+
+
+class DWIBiasCorrect(MRTrix3Base):
+    """
+    Perform B1 field inhomogeneity correction for a DWI volume series.
+    For more information, see
+    <https://mrtrix.readthedocs.io/en/latest/reference/scripts/dwibiascorrect.html>
+    Example
+    -------
+    >>> import nipype.interfaces.mrtrix3 as mrt
+    >>> bias_correct = mrt.DWIBiasCorrect()
+    >>> bias_correct.inputs.in_file = 'dwi.mif'
+    >>> bias_correct.inputs.use_ants = True
+    >>> bias_correct.cmdline
+    'dwibiascorrect ants dwi.mif dwi_biascorr.mif'
+    >>> bias_correct.run()                             # doctest: +SKIP
+    """
+
+    _cmd = "dwibiascorrect"
+    input_spec = DWIBiasCorrectInputSpec
+    output_spec = DWIBiasCorrectOutputSpec
+
+    def _format_arg(self, name, trait_spec, value):
+        if name in ("use_ants", "use_fsl"):
+            ver = self.version
+            # Changed in version 3.0, after release candidates
+            if ver is not None and (ver[0] < "3" or ver.startswith("3.0_RC")):
+                return f"-{trait_spec.argstr}"
+        return super()._format_arg(name, trait_spec, value)
+
 
 class MRMathInputSpec(MRTrix3BaseInputSpec):
     in_file = File(
