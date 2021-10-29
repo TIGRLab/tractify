@@ -230,7 +230,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (gen5tt, gen5tt_convert, [("out_file", "in_file")]),
             (gen5ttMask, gmwmi_convert, [("out_file", "in_file")]),
             # Extracting b1000 from eddy
-            (inputnode, eddy_extract_b1000, [("eddy_file", "in_file")]),
+            (eddy_biascorrect, eddy_extract_b1000, [("out_file", "in_file")]),
             (gen_grad_tuple, eddy_extract_b1000, [("out_tuple", "grad_fsl")]),
             # Skulstrip b1000 using BET
             (eddy_extract_b1000, eddy_b1000_mask, [("out_file", "in_file")]),
