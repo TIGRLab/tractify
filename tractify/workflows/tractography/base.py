@@ -102,7 +102,10 @@ def init_tract_wf(gen5tt_algo='fsl'):
     atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour'), name="atlas_flirt")
     
     #flirt -in 5TT.mif -ref T1_to_dwi.nii.gz -out 5TT_to_diff.nii.gz -omat 5TT_to_diff.mat -applyxfm -init T1_to_dwi.mat
-    gen5tt_flirt = pe.Node(fsl.FLIRT(apply_xfm=True), name="gen5tt_flirt")
+    # gen5tt_flirt = pe.Node(fsl.FLIRT(apply_xfm=True), name="gen5tt_flirt")
+    
+    #flirt -in aseg.mgz -ref T1_to_dwi.nii.gz -out aseg_to_diff.nii.gz -omat aseg_to_diff.mat -applyxfm -init T1_to_dwi.mat
+    aseg_flirt = pe.Node(fsl.FLIRT(apply_xfm=True), name="aseg_flirt")
 
     ## generate connectivity matrices
     conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, keep_unassigned=True), name="conmatgen3")
@@ -150,12 +153,12 @@ def init_tract_wf(gen5tt_algo='fsl'):
         )
     elif (gen5tt_algo == 'freesurfer'):
         # Convert the aseg.mgz from freesurfer to nii.gz 
-        # fs_convert_mgz = pe.Node(MRIConvert(in_type='mgz', out_type='niigz', out_file='aseg.nii.gz'), name="fs_convert_mgz")
+        fs_convert_mgz = pe.Node(MRIConvert(in_type='mgz', out_type='niigz', out_file='aseg.nii.gz'), name="fs_convert_mgz")
         gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='freesurfer', no_crop=True, out_file='5TT.mif'), name="gen5tt")
         tract_wf.connect(
             [
-                # Pass in freesurfer aseg to gen5tt
-                (inputnode, gen5tt, [("fs_file", "in_file")])
+                # Pass in freesurfer aseg (diffusion converted) to gen5tt
+                (fs_convert_mgz, gen5tt, [("out_file", "in_file")])
             ]
         )
     else:
@@ -172,7 +175,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
             (inputnode, flirt, [("t1_file", "in_file")]),
             # response function + mask
-            (gen5tt_flirt, gen5ttMask, [("out_file", "in_file")]),
+            (gen5tt, gen5ttMask, [("out_file", "in_file")]),
             # Combining the bval and bvec from eddy
             (
                 inputnode,
@@ -199,7 +202,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # Generate eddy mask and then feed into responseSD
             (eddy_b0_mask, responseSD, [("mask_file", "in_mask")]),
             (inputnode, responseSD, [("eddy_file", "in_file")]),
-            (gen5tt_flirt, responseSD, [("out_file", "mtt_file")]),
+            (gen5tt_convert, responseSD, [("converted", "mtt_file")]),
             # FOD generation
             (gen_grad_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
             (inputnode, estimateFOD, [("eddy_file", "in_file")]),
@@ -209,7 +212,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_b0_mask, estimateFOD, [("mask_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
-            (gen5tt_flirt, tckgen, [("out_file", "act_file")]),
+            (gen5tt, tckgen, [("out_file", "act_file")]),
             (gen5ttMask, tckgen, [("out_file", "seed_gmwmi")]),
             (inputnode, tckgen, [("num_tracts", "select")]),
             # tcksift
@@ -227,9 +230,11 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (xfm_concat, atlas_flirt, [("out_file", "in_matrix_file")]),
             # 5tt flirt
             #(gen5tt, gen5tt_flirt, [("out_file", "in_file")]),
-            (gen5tt_convert, gen5tt_flirt, [("converted", "in_file")]),
-            (flirt, gen5tt_flirt, [("out_file", "reference")]),
-            (flirt, gen5tt_flirt, [("out_matrix_file", "in_matrix_file")]),
+            (flirt, aseg_flirt, [("out_file", "reference")]),
+            (flirt, aseg_flirt, [("out_matrix_file", "in_matrix_file")]),
+            # Convert the freesurfer aseg image before registering it
+            (inputnode, fs_convert_mgz, [("fs_file", "in_file")]),
+            (fs_convert_mgz, aseg_flirt, [("out_file", "in_file")]),
             # Generate connectivity matrices
             (tckgen, conmatgen3, [("out_file", "in_file")]),
             (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
