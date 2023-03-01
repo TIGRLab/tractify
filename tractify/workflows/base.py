@@ -31,6 +31,7 @@ def init_single_ses_wf(subject_id, session_id, parameters):
     inputspec.inputs.output_dir = parameters.output_dir
     inputspec.inputs.t1_file = parameters.t1_file
     inputspec.inputs.fs_file = parameters.fs_file
+    inputspec.inputs.rawavg_file = parameters.rawavg_file
     inputspec.inputs.eddy_file = parameters.eddy_file
     inputspec.inputs.bvec = parameters.bvec_file
     inputspec.inputs.bval = parameters.bval_file
