@@ -28,6 +28,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
                 "t1_file",
                 "fs_file",
                 "rawavg_file",
+                "fs_brain",
                 "eddy_file",
                 "bval",
                 "bvec",
@@ -56,9 +57,13 @@ def init_tract_wf(gen5tt_algo='fsl'):
     # Skullstrip the t1, needs to map brain on brain
     # t1_skullstrip = init_brain_extraction_wf()
 
+    # Put the T1 in the native freesurfer space and then convert it to nii.gz
+    t1_convert = pe.Node(mrtrix3.MRConvert(out_filename="t1-in-rawavg.nii.gz"), name="t1_convert")
+
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
+    
 
     to_list = lambda x: [x]
     
@@ -147,13 +152,13 @@ def init_tract_wf(gen5tt_algo='fsl'):
     elif (gen5tt_algo == 'freesurfer'):
         # Convert the aseg.mgz from freesurfer to nii.gz 
         # seg_file is aseg, reg_header is aseg, template_file is 001
-        rename_temp = pe.Node(niu.Rename(format_string='aseg_temp.mgz'), name = "rename_temp")
-        label2vol_aseg = pe.Node(dmri_fsl.Label2Vol(vol_label_file='aseg-in-rawavg.mgz'), name = "label2vol_aseg")        
+        rename_temp = pe.Node(niu.Rename(format_string='aseg_temp.mgz'), name = "rename_temp")     
         gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='freesurfer', no_crop=True, out_file='5TT.nii.gz'), name="gen5tt")
+        # Convert aseg to nii.gz
         tract_wf.connect(
             [
                 # Pass in freesurfer aseg (diffusion converted) to gen5tt
-                (label2vol_aseg, gen5tt, [("vol_label_file", "in_file")])
+                (rename_temp, gen5tt, [("out_file", "in_file")]),
             ]
         )
     else:
@@ -168,7 +173,8 @@ def init_tract_wf(gen5tt_algo='fsl'):
     tract_wf.connect(
         [
             # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
-            (inputnode, flirt, [("t1_file", "in_file")]),
+            (inputnode, t1_convert, [("fs_brain", "in_file")]),
+            (t1_convert, flirt, [("converted", "in_file")]),
             # response function + mask
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
             # Combining the bval and bvec from eddy
@@ -187,7 +193,6 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # Averaging out b0 from mrmath
             (eddy_biascorrect, eddy_extract_b0, [("out_file", "in_file")]),
             # Extracting b0 from eddy
-            # (inputnode, eddy_extract_b0, [("eddy_file", "in_file")]),
             (gen_grad_tuple, eddy_extract_b0, [("out_tuple", "grad_fsl")]),
             # Averaging out b0 from mrmath
             (eddy_extract_b0, eddy_mean_b0, [("out_file", "in_file")]),
@@ -214,7 +219,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (estimateFOD, tcksift, [("wm_odf", "in_fod")]),
             (tckgen, tcksift, [("out_file", "in_tracks")]),
             # atlas flirt
-            (inputnode, pre_atlas_flirt,[("t1_file", "in_file")]),
+            (t1_convert, pre_atlas_flirt, [("converted", "in_file")]),
             (inputnode, pre_atlas_flirt,[("template", "reference")]),
             (pre_atlas_flirt, xfm_inv, [("out_matrix_file", "in_file")]),
             (flirt, xfm_concat, [("out_matrix_file", "in_file2")]),
@@ -225,10 +230,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (xfm_concat, atlas_flirt, [("out_file", "in_matrix_file")]),
             # 5tt flirt
             # Convert the freesurfer aseg image before registering it
-            (inputnode, label2vol_aseg, [("fs_file", "reg_header")]),
             (inputnode, rename_temp, [("fs_file", "in_file")]),
-            (rename_temp, label2vol_aseg, [("out_file", "seg_file")]),
-            (inputnode, label2vol_aseg, [("rawavg_file", "template_file")]),
             # Generate connectivity matrices
             (tckgen, conmatgen3, [("out_file", "in_file")]),
             (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),

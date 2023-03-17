@@ -16,6 +16,7 @@ class Parameters:
         t1_file,
         fs_file,
         rawavg_file,
+        fs_brain,
         eddy_file,
         bval_file,
         bvec_file,
@@ -29,6 +30,7 @@ class Parameters:
         self.t1_file = t1_file
         self.fs_file = fs_file
         self.rawavg_file = rawavg_file
+        self.fs_brain = fs_brain
         self.eddy_file = eddy_file
         self.bval_file = bval_file
         self.bvec_file = bvec_file
@@ -57,6 +59,14 @@ class Parameters:
     help="The native anatomical space that's used for registering the aseg to the T1." 
     "Needed if running with --gen5tt-algo=freesurfer."
     "Can use /mri/rawavg.mgz or mri/orig/001.mgz from freesurfer outputs."
+    "https://surfer.nmr.mgh.harvard.edu/fswiki/FsAnat-to-NativeAnat for details.",
+    default=None,
+)
+@click.option(
+    "--fs-brain",
+    help="The anatomical brain file that's used as the base 'T1' instead." 
+    "Needed if running with --gen5tt-algo=freesurfer"
+    "Use mri/brain.mgz from freesurfer outputs."
     "https://surfer.nmr.mgh.harvard.edu/fswiki/FsAnat-to-NativeAnat for details.",
     default=None,
 )
@@ -92,7 +102,7 @@ class Parameters:
 @click.argument("atlas_file")
 @click.argument("output_dir")
 
-def main(gen5tt_algo, fs_file, rawavg_file, num_tracts, participant_label, session_label, t1_file, eddy_file, bvec_file, bval_file, template_file, atlas_file, output_dir):
+def main(gen5tt_algo, fs_file, rawavg_file, fs_brain, num_tracts, participant_label, session_label, t1_file, eddy_file, bvec_file, bval_file, template_file, atlas_file, output_dir):
     """Console script for tractify."""
 
     work_dir = os.path.join(output_dir, "scratch")
@@ -102,6 +112,7 @@ def main(gen5tt_algo, fs_file, rawavg_file, num_tracts, participant_label, sessi
         t1_file=t1_file,
         fs_file=fs_file,
         rawavg_file=rawavg_file,
+        fs_brain=fs_brain,
         eddy_file=eddy_file,
         bval_file=bval_file,
         bvec_file=bvec_file,
