@@ -63,6 +63,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
+
+    # Aseg flirt
+    aseg_flirt = pe.Node(fsl.FLIRT(apply_xfm=True), name="aseg_flirt")
     
 
     to_list = lambda x: [x]
@@ -202,7 +205,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # Generate eddy mask and then feed into responseSD
             (eddy_b0_mask, responseSD, [("mask_file", "in_mask")]),
             (inputnode, responseSD, [("eddy_file", "in_file")]),
-            (gen5tt, responseSD, [("out_file", "mtt_file")]),
+            (aseg_flirt, responseSD, [("out_file", "mtt_file")]),
             # FOD generation
             (gen_grad_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
             (inputnode, estimateFOD, [("eddy_file", "in_file")]),
@@ -212,7 +215,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_b0_mask, estimateFOD, [("mask_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
-            (gen5tt, tckgen, [("out_file", "act_file")]),
+            (aseg_flirt, tckgen, [("out_file", "act_file")]),
             (gen5ttMask, tckgen, [("out_file", "seed_gmwmi")]),
             (inputnode, tckgen, [("num_tracts", "select")]),
             # tcksift
@@ -231,6 +234,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # 5tt flirt
             # Convert the freesurfer aseg image before registering it
             (inputnode, rename_temp, [("fs_file", "in_file")]),
+            (gen5tt, aseg_flirt, [("out_file", "in_file")]),
+            (flirt, aseg_flirt, [("out_file", "reference")]),
+            (flirt, aseg_flirt, [("out_matrix_file", "in_matrix_file")]),
             # Generate connectivity matrices
             (tckgen, conmatgen3, [("out_file", "in_file")]),
             (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
@@ -248,7 +254,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_extract_b1000, dtifit, [("export_bval", "bvals")]),
             (eddy_extract_b1000, dtifit, [("export_bvec", "bvecs")]),
             # Outputnode
-            (gen5tt, outputnode, [("out_file", "5tt_file")]),
+            (aseg_flirt, outputnode, [("out_file", "5tt_file")]),
             (gmwmi_convert, outputnode, [("converted", "gmwmi_file")]),
             (tcksift, outputnode, [("out_weights", "prob_weights")]),
             (atlas_flirt, outputnode, [("out_file", "atlas_diff_space")]),
