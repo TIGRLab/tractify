@@ -64,7 +64,9 @@ As you can see, there are other data you need to pass in aside from the diffusio
 - `--session-label`: The id of the subject's session data being run through the pipeline, for output organization (optional, default `01`).
 - `--num-tracts`: The id of the subject's session data being run through the pipeline, for output organization (optional, default 5000000).
 - `--gen5tt-algo`: If you want to use the freesurfer algo for 5ttgen instead of using the default FSL one (see [here](https://mrtrix.readthedocs.io/en/latest/reference/commands/5ttgen.html) for details). You must run this with `--fs-file` (optional, choose from `fsl` or `freesurfer`, default `fsl`).
-- `--fs-file`: The aseg.mgz for the subject from freesurfer, for use with `--gen5tt-algo` (optional).
+- `--fs-file`: The aseg.mgz for the subject from freesurfer, for use with `--gen5tt-algo freesurfer` (optional).
+- `--fs-brain`: The outputted anatomical brain from freesurfer (mri/brain.mgz), for use with `--gen5tt-algo freesurfer` (optional).
+- `--rawavg-file`: The native anatomical space for the subject from freesurfer (mri/rawavg.mgz or mri/orig/001.mgz), for use with `--gen5tt-algo freesurfer` (optional).
 
 **Outputs**
 
