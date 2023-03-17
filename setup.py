@@ -15,7 +15,6 @@ requirements = [
     "Click>=6.0",
     "nipype>=1.2.2",
     "dipy",
-    "numba",
     "pybids>=0.9.4",
     "niworkflows>=0.10.3rc1"
 ]
