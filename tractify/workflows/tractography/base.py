@@ -64,10 +64,12 @@ def init_tract_wf(gen5tt_algo='fsl'):
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
 
-    # Aseg flirt
-    aseg_flirt = pe.Node(fsl.FLIRT(apply_xfm=True), name="aseg_flirt")
-    
+    # Convert the aseg to mgz
+    aseg_convert = pe.Node(mrtrix3.MRConvert(out_filename="aseg.nii.gz"), name="aseg_convert")
 
+    # Aseg flirt
+    aseg_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour'), name="aseg_flirt")
+    
     to_list = lambda x: [x]
     
     #5tt2gmwmi 5TT.mif gmwmi.mif
@@ -155,13 +157,13 @@ def init_tract_wf(gen5tt_algo='fsl'):
     elif (gen5tt_algo == 'freesurfer'):
         # Convert the aseg.mgz from freesurfer to nii.gz 
         # seg_file is aseg, reg_header is aseg, template_file is 001
-        rename_temp = pe.Node(niu.Rename(format_string='aseg_temp.mgz'), name = "rename_temp")     
+        rename_temp = pe.Node(niu.Rename(format_string='aseg_temp.nii.gz'), name = "rename_temp")     
         gen5tt = pe.Node(mrtrix3.Generate5tt(algorithm='freesurfer', no_crop=True, out_file='5TT.nii.gz'), name="gen5tt")
         # Convert aseg to nii.gz
         tract_wf.connect(
             [
                 # Pass in freesurfer aseg (diffusion converted) to gen5tt
-                (rename_temp, gen5tt, [("out_file", "in_file")]),
+                (aseg_flirt, gen5tt, [("out_file", "in_file")]),
             ]
         )
     else:
@@ -205,7 +207,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             # Generate eddy mask and then feed into responseSD
             (eddy_b0_mask, responseSD, [("mask_file", "in_mask")]),
             (inputnode, responseSD, [("eddy_file", "in_file")]),
-            (aseg_flirt, responseSD, [("out_file", "mtt_file")]),
+            (gen5tt, responseSD, [("out_file", "mtt_file")]),
             # FOD generation
             (gen_grad_tuple, estimateFOD, [("out_tuple", "grad_fsl")]),
             (inputnode, estimateFOD, [("eddy_file", "in_file")]),
@@ -215,7 +217,7 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_b0_mask, estimateFOD, [("mask_file", "mask_file")]),
             # tckgen
             (estimateFOD, tckgen, [("wm_odf", "in_file")]),
-            (aseg_flirt, tckgen, [("out_file", "act_file")]),
+            (gen5tt, tckgen, [("out_file", "act_file")]),
             (gen5ttMask, tckgen, [("out_file", "seed_gmwmi")]),
             (inputnode, tckgen, [("num_tracts", "select")]),
             # tcksift
@@ -233,8 +235,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (xfm_concat, atlas_flirt, [("out_file", "in_matrix_file")]),
             # 5tt flirt
             # Convert the freesurfer aseg image before registering it
-            (inputnode, rename_temp, [("fs_file", "in_file")]),
-            (gen5tt, aseg_flirt, [("out_file", "in_file")]),
+            (inputnode, aseg_convert, [("fs_file", "in_file")]),
+            (aseg_convert, rename_temp, [("converted", "in_file")]),
+            (rename_temp, aseg_flirt, [("out_file", "in_file")]),
             (flirt, aseg_flirt, [("out_file", "reference")]),
             (flirt, aseg_flirt, [("out_matrix_file", "in_matrix_file")]),
             # Generate connectivity matrices
