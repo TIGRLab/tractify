@@ -13,8 +13,7 @@ from ...interfaces import fsl as dmri_fsl
 from .outputs import init_tract_output_wf
 from ...utils import gen_tuple
 from nipype.interfaces.freesurfer import MRIConvert, Label2Vol
-
-from nipype.interfaces import fsl, utility as niu
+from ...interfaces.fsl import Reorient2Std, FNIRT, ApplyWarp, InvWarp
 
 def init_tract_wf(gen5tt_algo='fsl'):
     tract_wf = pe.Workflow(name="tract_wf")
@@ -60,6 +59,15 @@ def init_tract_wf(gen5tt_algo='fsl'):
     # Put the T1 in the native freesurfer space and then convert it to nii.gz
     t1_convert = pe.Node(mrtrix3.MRConvert(out_filename="t1-in-rawavg.nii.gz"), name="t1_convert")
 
+    # Reorient2Std for T1 after converting
+    reorient_t1 = pe.Node(Reorient2Std(out_file="brain_reoriented.nii.gz"), name="t1_reorient")
+
+    # Reorient2Std for aseg after converting
+    reorient_aseg = pe.Node(Reorient2Std(out_file="aseg_reoriented.nii.gz"), name="reorient_aseg")
+
+    # Reorient2Std for gmwmi after converting
+    reorient_gmwmi = pe.Node(Reorient2Std(out_file="gmwmi_reoriented.nii.gz"), name="reorient_gmwmi")
+
     #register T1 to diffusion space first
     #flirt -dof 6 -in T1w_brain.nii.gz -ref nodif_brain.nii.gz -omat xformT1_2_diff.mat -out T1_diff
     flirt = pe.Node(fsl.FLIRT(dof=6), name="t1_flirt")
@@ -103,13 +111,17 @@ def init_tract_wf(gen5tt_algo='fsl'):
     ## atlas reg
     #flirt -in T1w_brain.nii.gz -ref MNI152_T1_1mm_brain.nii.gz -omat xformT1_2_MNI.mat
     pre_atlas_flirt = pe.Node(fsl.FLIRT(), name="pre_atlas_flirt")
-    #convert_xfm -omat xformMNI_2_T1.mat -inverse xformT12MNI.mat (inverse, now MNI -> T1)
-    xfm_inv = pe.Node(fsl.ConvertXFM(invert_xfm=True), name="xfm_inv")
-    #convert_xfm -omat xformMNI_2_diff.mat -concat xformT1_2_diff.mat xformMNI_2_T1.mat (concatenating MNI -> T1 + T1 -> diff, now MNI -> diff)
-    xfm_concat = pe.Node(fsl.ConvertXFM(concat_xfm=True), name="xfm_concat")
+    # nonlinear part of registration
+    template_nonlin_fnirt = pe.Node(FNIRT(fieldcoeff_file="t1_to_template_warp.nii.gz", config_file="T1_2_MNI152_2mm"), name="template_nonlin_fnirt")
+
+    # Inverse warp (nonlinear) (inverse, now MNI -> T1)
+    inv_template_warp = pe.Node(InvWarp(inverse_warp="template_to_t1_warp.nii.gz"), name="inv_template_warp")
 
     #flirt -in shen268.nii.gz -ref T1_diff.nii.gz -applyxfm -init xformMNI_2_diff.mat -interp nearestneighbour -out shen_diff_space.nii.gz (shen to diffusion space, using MNI->diff)
     atlas_flirt = pe.Node(fsl.FLIRT(apply_xfm=True, interp='nearestneighbour'), name="atlas_flirt")
+
+    # Apply the warp and then postmat to get atlas to b0
+    atlas_to_b0 = pe.Node(ApplyWarp(relwarp = True, interp='nn', out_file = 'atlas_to_diff.nii.gz'), name="atlas_to_b0")
 
     ## generate connectivity matrices
     conmatgen3 = pe.Node(mrtrix3.BuildConnectome(out_file="conmat_length_invnodevol.csv", scale_invnodevol=True, scale_length=True, symmetric=True, zero_diagonal=True, search_radius=4, keep_unassigned=True), name="conmatgen3")
@@ -179,7 +191,8 @@ def init_tract_wf(gen5tt_algo='fsl'):
         [
             # t1 flirt (taking this out because t1s are assumed already skullstripped in this version)
             (inputnode, t1_convert, [("fs_brain", "in_file")]),
-            (t1_convert, flirt, [("converted", "in_file")]),
+            (t1_convert, reorient_t1, [("converted", "in_file")]),
+            (reorient_t1, flirt, [("out_file", "in_file")]),
             # response function + mask
             (gen5tt, gen5ttMask, [("out_file", "in_file")]),
             # Combining the bval and bvec from eddy
@@ -224,28 +237,35 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (estimateFOD, tcksift, [("wm_odf", "in_fod")]),
             (tckgen, tcksift, [("out_file", "in_tracks")]),
             # atlas flirt
-            (t1_convert, pre_atlas_flirt, [("converted", "in_file")]),
+            (reorient_t1, pre_atlas_flirt, [("out_file", "in_file")]),
             (inputnode, pre_atlas_flirt,[("template", "reference")]),
-            (pre_atlas_flirt, xfm_inv, [("out_matrix_file", "in_file")]),
-            (flirt, xfm_concat, [("out_matrix_file", "in_file2")]),
-            (xfm_inv, xfm_concat, [("out_file", "in_file")]),
-            # Atlas register
-            (inputnode, atlas_flirt, [("atlas", "in_file")]),
-            (flirt, atlas_flirt, [("out_file", "reference")]),
-            (xfm_concat, atlas_flirt, [("out_file", "in_matrix_file")]),
+            #new atlas flirt
+            (reorient_t1, template_nonlin_fnirt, [("out_file", "in_file")]),
+            (inputnode, template_nonlin_fnirt,[("template", "ref_file")]),
+            (pre_atlas_flirt, template_nonlin_fnirt,[("out_matrix_file", "affine_file")]),
+            (template_nonlin_fnirt, inv_template_warp, [("fieldcoeff_file", "warp")]),
+            (reorient_t1, inv_template_warp, [("out_file", "reference")]),
+            # Atlas register (nonlinear)
+            # Reference is b0, can be changed to reorient though
+            (eddy_b0_mask, atlas_to_b0, [("out_file", "ref_file")]),
+            (inv_template_warp, atlas_to_b0, [("inverse_warp", "field_file")]),
+            (flirt, atlas_to_b0, [("out_matrix_file", "postmat")]),
+            (inputnode, atlas_to_b0, [("atlas", "in_file")]),
             # 5tt flirt
             # Convert the freesurfer aseg image before registering it
             (inputnode, aseg_convert, [("fs_file", "in_file")]),
             (aseg_convert, rename_temp, [("converted", "in_file")]),
-            (rename_temp, aseg_flirt, [("out_file", "in_file")]),
+            (rename_temp, reorient_aseg, [("out_file", "in_file")]),
+            (reorient_aseg, aseg_flirt, [("out_file", "in_file")]),
             (flirt, aseg_flirt, [("out_file", "reference")]),
             (flirt, aseg_flirt, [("out_matrix_file", "in_matrix_file")]),
             # Generate connectivity matrices
             (tckgen, conmatgen3, [("out_file", "in_file")]),
-            (atlas_flirt, conmatgen3, [("out_file", "in_parc")]),
+            (atlas_to_b0, conmatgen3, [("out_file", "in_parc")]),
             (tcksift, conmatgen3, [("out_weights", "in_weights")]),
             # convert mifs to niftis
             (gen5ttMask, gmwmi_convert, [("out_file", "in_file")]),
+            (gmwmi_convert, reorient_gmwmi, [("converted", "in_file")]),
             # Extracting b1000 from eddy
             (eddy_biascorrect, eddy_extract_b1000, [("out_file", "in_file")]),
             (gen_grad_tuple, eddy_extract_b1000, [("out_tuple", "grad_fsl")]),
@@ -258,9 +278,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_extract_b1000, dtifit, [("export_bvec", "bvecs")]),
             # Outputnode
             (aseg_flirt, outputnode, [("out_file", "5tt_file")]),
-            (gmwmi_convert, outputnode, [("converted", "gmwmi_file")]),
+            (reorient_gmwmi, outputnode, [("out_file", "gmwmi_file")]),
             (tcksift, outputnode, [("out_weights", "prob_weights")]),
-            (atlas_flirt, outputnode, [("out_file", "atlas_diff_space")]),
+            (atlas_to_b0, outputnode, [("out_file", "atlas_diff_space")]),
             (conmatgen3, outputnode, [("out_file", "len_invnodevol_conmat")]),
             (dtifit, outputnode, [("sse", "sse")]),
         ]
