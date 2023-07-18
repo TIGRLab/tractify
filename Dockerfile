@@ -1,49 +1,6 @@
-FROM ubuntu:xenial-20210722
+FROM vnmd/mrtrix3_3.0.2:latest
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        bc \
-        libtool \
-        tar \
-        dpkg \
-        curl \
-        wget \
-        unzip \
-        gcc \
-        git \
-        libstdc++6 \
-        python \
-        ca-certificates \
-        libeigen3-dev \
-        clang \
-        zlib1g-dev \
-        libqt4-opengl-dev \
-        libgl1-mesa-dev \
-        libopenblas-base
-
-# Build FSL in container
-ENV FSLDIR="/opt/fsl-6.0.1" \
-    PATH="/opt/fsl-6.0.1/bin:$PATH" \
-    FSLOUTPUTTYPE="NIFTI_GZ"
-RUN echo "Downloading FSL ..." \
-    && wget -q http://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py \
-    && chmod 775 fslinstaller.py
-RUN /fslinstaller.py -d /opt/fsl-6.0.1 -V 6.0.1 -q
-
-# MRtrix3
-# from https://hub.docker.com/r/neurology/mrtrix/dockerfile
-RUN mkdir /mrtrix
-RUN git clone https://github.com/MRtrix3/mrtrix3.git --branch 3.0.2 /mrtrix
-WORKDIR /mrtrix
-# Checkout version used in the lab: 20180128
-# RUN git checkout f098f097ccbb3e5efbb8f5552f13e0997d161cce
-ENV CXX=/usr/bin/clang++
-RUN ./configure
-RUN ./build
-RUN ./set_path
-ENV PATH=/mrtrix/bin:$PATH
-
-WORKDIR /
+USER root
 
 # Installing freesurfer
 RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.1.0/freesurfer-linux-centos8_x86_64-7.1.0.tar.gz \
@@ -112,9 +69,14 @@ RUN conda install -y python=3.7.3 \
 
 RUN pip install --upgrade pip
 
-RUN mkdir tractify
-COPY ./ tractify/
-RUN cd tractify && pip install .
+#RUN mkdir tractify
+#COPY ./ tractify/
+#RUN cd tractify && pip install .
+
+RUN git clone https://github.com/TIGRLab/tractify /tractify && \
+    pip install packaging==23.1 dipy==1.6.0 && \
+    cd /tractify && \
+    pip install .
 
 ENTRYPOINT ["tractify"]
 

@@ -136,6 +136,9 @@ def init_tract_wf(gen5tt_algo='fsl'):
     eddy_extract_b0 = pe.Node(mrtrix3.DWIExtract(bzero=True, out_file="data_ud_b0.nii.gz", export_grad_fsl=("data_ud_b0.new_bvecs", "data_ud_b0.new_bval")), name="eddy_extract_b0")
 
     # Avg out the b0s from eddy
+    eddy_mean_b1000 = pe.Node(mrtrix3.MRMath(operation='mean', axis=3), name="eddy_mean_b1000")
+
+    # Avg out the b0s from eddy
     eddy_mean_b0 = pe.Node(mrtrix3.MRMath(operation='mean', axis=3), name="eddy_mean_b0")
 
     # dilate mask (eddy)
@@ -270,7 +273,8 @@ def init_tract_wf(gen5tt_algo='fsl'):
             (eddy_biascorrect, eddy_extract_b1000, [("out_file", "in_file")]),
             (gen_grad_tuple, eddy_extract_b1000, [("out_tuple", "grad_fsl")]),
             # Skulstrip b1000 using BET
-            (eddy_extract_b1000, eddy_b1000_mask, [("out_file", "in_file")]),
+            (eddy_extract_b1000, eddy_mean_b1000, [("out_file", "in_file")]),
+            (eddy_mean_b1000, eddy_b1000_mask, [("out_file", "in_file")]),
             # Generate sse from dtifit
             (eddy_extract_b1000, dtifit, [("out_file", "dwi")]),
             (eddy_b1000_mask, dtifit, [("mask_file", "mask")]),
